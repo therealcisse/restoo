@@ -7,5 +7,9 @@ addSbtPlugin("com.geirsson" % "sbt-scalafmt" % "1.5.1")
 
 addSbtPlugin("org.wartremover" % "sbt-wartremover" % "2.3.1")
 
+// Database migrations
+addSbtPlugin("org.flywaydb" % "flyway-sbt" % "4.2.0")
+
+resolvers += "Flyway".at("https://davidmweber.github.io/flyway-sbt.repo")
 // Native Packager allows us to create standalone jar
 addSbtPlugin("com.typesafe.sbt" % "sbt-native-packager" % "1.3.4")
