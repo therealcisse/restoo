@@ -36,7 +36,7 @@ final class ItemEndpoints[F[_]: Effect, A, K] extends Http4sDsl[F] {
         action.flatMap {
           case Right(saved) => Ok(saved.asJson)
           case Left(ItemAlreadyExistsError(existing)) =>
-            Conflict(s"The item with item name $existing already exists")
+            Conflict(s"The item with item name `$existing` already exists")
         }
     }
 
@@ -74,10 +74,22 @@ final class ItemEndpoints[F[_]: Effect, A, K] extends Http4sDsl[F] {
         } yield resp
     }
 
+  private def getItemEndpoint(itemService: ItemService[F]): HttpService[F] =
+    HttpService[F] {
+      case GET -> Root / LongVar(id) =>
+        val action = itemService.getItem(ItemId(id)).value
+
+        action.flatMap {
+          case Right(item) => Ok(item.asJson)
+          case Left(ItemNotFoundError) => NotFound("Item not found")
+        }
+    }
+
   def endpoints(itemService: ItemService[F]): HttpService[F] =
     createEndpoint(itemService) <+>
       updateEndpoint(itemService) <+>
       deleteItemEndpoint(itemService) <+>
+      getItemEndpoint(itemService) <+>
       listEndpoint(itemService)
 }
 

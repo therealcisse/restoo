@@ -5,9 +5,9 @@ import cats.effect.{Effect, IO}
 import fs2.{Stream, StreamApp}
 import org.http4s.server.blaze.BlazeBuilder
 
-import service.ItemService
-import infra.endpoint.ItemEndpoints
-import infra.repository.doobie.DoobieItemRepositoryInterpreter
+import service.{ItemService, StockService}
+import infra.endpoint.{ItemEndpoints, StockEndpoints}
+import infra.repository.doobie.{DoobieEntryRepositoryInterpreter, DoobieItemRepositoryInterpreter}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 
@@ -24,10 +24,13 @@ object ServerStream {
       xa <- Stream.eval(DatabaseConfig.dbTransactor(conf.db))
       _ <- Stream.eval(DatabaseConfig.initializeDb(conf.db, xa))
       itemRepo = DoobieItemRepositoryInterpreter(xa)
+      entryRepo = DoobieEntryRepositoryInterpreter(xa)
       itemService = ItemService(itemRepo)
+      stockService = StockService(entryRepo, itemRepo)
       exitCode <- BlazeBuilder[F]
         .bindHttp(8080, "localhost")
         .mountService(ItemEndpoints.endpoints(itemService), "/api/v1/items")
+        .mountService(StockEndpoints.endpoints(stockService), "/api/v1/items")
         .serve
     } yield exitCode
 }

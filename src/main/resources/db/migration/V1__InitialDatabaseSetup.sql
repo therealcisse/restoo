@@ -21,6 +21,6 @@ CREATE TABLE entries (
   timestamp TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   constraint fk_entries_items
      FOREIGN KEY (item_id)
-     REFERENCES items (id)
+     REFERENCES items (id) ON DELETE CASCADE
 );
 
