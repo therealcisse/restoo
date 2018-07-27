@@ -42,7 +42,7 @@ final class ItemEndpoints[F[_]: Effect, A, K] extends Http4sDsl[F] {
 
   private def updateEndpoint(itemService: ItemService[F]): HttpService[F] =
     HttpService[F] {
-      case req @ PUT -> Root / LongVar(id) =>
+      case req @ PUT -> Root / IntVar(id) =>
         val action = for {
           itemRequest <- req.as[ItemRequest]
           item = itemRequest.asItem()
@@ -67,7 +67,7 @@ final class ItemEndpoints[F[_]: Effect, A, K] extends Http4sDsl[F] {
 
   private def deleteItemEndpoint(itemService: ItemService[F]): HttpService[F] =
     HttpService[F] {
-      case DELETE -> Root / LongVar(id) =>
+      case DELETE -> Root / IntVar(id) =>
         for {
           _ <- itemService.deleteItem(ItemId(id))
           resp <- Ok()
@@ -76,7 +76,7 @@ final class ItemEndpoints[F[_]: Effect, A, K] extends Http4sDsl[F] {
 
   private def getItemEndpoint(itemService: ItemService[F]): HttpService[F] =
     HttpService[F] {
-      case GET -> Root / LongVar(id) =>
+      case GET -> Root / IntVar(id) =>
         val action = itemService.getItem(ItemId(id)).value
 
         action.flatMap {
@@ -104,8 +104,8 @@ object ItemEndpoints {
       name = Name(name),
       priceInCents = Cents(price),
       category = Category(category),
-      createdAt = OccurredAt.now.some,
-      updatedAt = OccurredAt.now.some,
+      createdAt = OccurredAt.now,
+      updatedAt = OccurredAt.now,
     )
   }
 

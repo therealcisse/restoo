@@ -27,7 +27,7 @@ final class StockEndpoints[F[_]: Effect, A, K] extends Http4sDsl[F] {
 
   private def createEndpoint(stockService: StockService[F]): HttpService[F] =
     HttpService[F] {
-      case req @ PUT -> Root / LongVar(itemId) / "stocks" =>
+      case req @ PUT -> Root / IntVar(itemId) / "stocks" =>
         val action = for {
           stockRequest <- req.as[StockRequest]
           result <- stockService.createEntry(ItemId(itemId), Delta(stockRequest.delta)).value
@@ -46,7 +46,7 @@ final class StockEndpoints[F[_]: Effect, A, K] extends Http4sDsl[F] {
 
   private def getStockEndpoint(stockService: StockService[F]): HttpService[F] =
     HttpService[F] {
-      case GET -> Root / LongVar(itemId) / "stocks" =>
+      case GET -> Root / IntVar(itemId) / "stocks" =>
         val action = stockService.getStock(ItemId(itemId)).value
 
         action.flatMap {

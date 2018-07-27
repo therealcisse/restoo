@@ -25,7 +25,7 @@ object DatabaseConfig {
       S.delay {
         val fw = new Flyway()
         fw.setDataSource(ds)
-        val _ = fw.migrate()
+        fw.migrate()
         ()
       }
     }

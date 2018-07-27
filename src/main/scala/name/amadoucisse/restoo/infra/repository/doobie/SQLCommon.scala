@@ -1,17 +1,18 @@
 package name.amadoucisse.restoo
 package infra
-package repository
+package repository.doobie
 
 import java.sql.Timestamp
 
 import java.time.Instant
 
+import doobie.Meta
+
 import domain.OccurredAt
 import domain.items.{Category, Cents, ItemId, Name}
 import domain.entries.{Delta, EntryId}
 
-package object doobie {
-  import _root_.doobie.Meta
+private trait SQLCommon {
 
   implicit val CategoryMeta: Meta[Category] =
     Meta[String].xmap[Category](x => Category(x), _.value)
@@ -23,10 +24,10 @@ package object doobie {
     Meta[Int].xmap[Cents](x => Cents(x), _.value)
 
   implicit val ItemIdMeta: Meta[ItemId] =
-    Meta[Long].xmap[ItemId](x => ItemId(x), _.value)
+    Meta[Int].xmap[ItemId](x => ItemId(x), _.value)
 
   implicit val EntryIdMeta: Meta[EntryId] =
-    Meta[Long].xmap[EntryId](x => EntryId(x), _.value)
+    Meta[Int].xmap[EntryId](x => EntryId(x), _.value)
 
   implicit val DeltaMeta: Meta[Delta] =
     Meta[Int].xmap[Delta](x => Delta(x), _.value)

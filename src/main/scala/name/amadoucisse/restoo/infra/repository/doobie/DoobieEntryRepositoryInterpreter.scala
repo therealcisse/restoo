@@ -1,18 +1,17 @@
 package name.amadoucisse.restoo
 package infra
-package repository
-package doobie
+package repository.doobie
 
 import cats.Monad
 import cats.implicits._
 
-import _root_.doobie._
-import _root_.doobie.implicits._
+import doobie._
+import doobie.implicits._
 
 import domain.items.ItemId
 import domain.entries.{Entry, EntryId, EntryRepositoryAlgebra}
 
-private object EntrySQL {
+private object EntrySQL extends SQLCommon {
 
   def insert(entry: Entry): Update0 = sql"""
     INSERT INTO entries (item_id, delta)
@@ -34,7 +33,7 @@ final class DoobieEntryRepositoryInterpreter[F[_]: Monad](val xa: Transactor[F])
   def create(entry: Entry): F[Entry] =
     EntrySQL
       .insert(entry)
-      .withUniqueGeneratedKeys[Long]("id")
+      .withUniqueGeneratedKeys[Int]("id")
       .map(id => entry.copy(id = EntryId(id).some))
       .transact(xa)
 

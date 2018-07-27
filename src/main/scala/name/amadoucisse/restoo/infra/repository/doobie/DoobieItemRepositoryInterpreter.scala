@@ -1,19 +1,18 @@
 package name.amadoucisse.restoo
 package infra
-package repository
-package doobie
+package repository.doobie
 
 import cats.Monad
 import cats.data.OptionT
 import cats.implicits._
 
-import _root_.doobie._
-import _root_.doobie.implicits._
+import doobie._
+import doobie.implicits._
 
 import domain.OccurredAt
 import domain.items._
 
-private object ItemSQL {
+private object ItemSQL extends SQLCommon {
 
   def insert(item: Item): Update0 = sql"""
     INSERT INTO items (name, price_in_cents, category)
@@ -42,7 +41,7 @@ private object ItemSQL {
     WHERE id = $itemId
   """.query
 
-  def findByName(name: Name): Query0[Item] = sql"""
+  def byName(name: Name): Query0[Item] = sql"""
     SELECT
       name,
       price_in_cents,
@@ -76,7 +75,7 @@ final class DoobieItemRepositoryInterpreter[F[_]: Monad](val xa: Transactor[F])
   def create(item: Item): F[Item] =
     ItemSQL
       .insert(item)
-      .withUniqueGeneratedKeys[Long]("id")
+      .withUniqueGeneratedKeys[Int]("id")
       .map(id => item.copy(id = ItemId(id).some))
       .transact(xa)
 
@@ -84,7 +83,7 @@ final class DoobieItemRepositoryInterpreter[F[_]: Monad](val xa: Transactor[F])
     OptionT
       .fromOption[F](item.id)
       .flatMapF { id =>
-        val newItem = item.copy(updatedAt = OccurredAt.now.some)
+        val newItem = item.copy(updatedAt = OccurredAt.now)
         ItemSQL
           .update(newItem, id)
           .run
@@ -94,7 +93,7 @@ final class DoobieItemRepositoryInterpreter[F[_]: Monad](val xa: Transactor[F])
 
   def get(id: ItemId): F[Option[Item]] = ItemSQL.select(id).option.transact(xa)
 
-  def findByName(name: Name): F[Option[Item]] = ItemSQL.findByName(name).option.transact(xa)
+  def findByName(name: Name): F[Option[Item]] = ItemSQL.byName(name).option.transact(xa)
 
   def delete(itemId: ItemId): F[Option[Item]] =
     OptionT(get(itemId)).semiflatMap(item => ItemSQL.delete(itemId).run.transact(xa).as(item)).value
