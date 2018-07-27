@@ -9,6 +9,8 @@ import service.{ItemService, StockService}
 import infra.endpoint.{ItemEndpoints, StockEndpoints}
 import infra.repository.doobie.{DoobieEntryRepositoryInterpreter, DoobieItemRepositoryInterpreter}
 
+import domain.items.ItemValidationInterpreter
+
 import scala.concurrent.ExecutionContext.Implicits.global
 
 object Server extends StreamApp[IO] {
@@ -25,7 +27,8 @@ object ServerStream {
       _ <- Stream.eval(DatabaseConfig.initializeDb(conf.db, xa))
       itemRepo = DoobieItemRepositoryInterpreter(xa)
       entryRepo = DoobieEntryRepositoryInterpreter(xa)
-      itemService = ItemService(itemRepo)
+      itemValidation = ItemValidationInterpreter(itemRepo)
+      itemService = ItemService(itemRepo, itemValidation)
       stockService = StockService(entryRepo, itemRepo)
       exitCode <- BlazeBuilder[F]
         .bindHttp(8080, "localhost")

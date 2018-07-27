@@ -5,7 +5,7 @@ import items.Item
 
 sealed trait ValidationError extends Product with Serializable
 
-final case class ItemAlreadyExistsError(name: String) extends ValidationError
+final case class ItemAlreadyExistsError(item: Item) extends ValidationError
 case object ItemNotFoundError extends ValidationError
 
 case object ItemOutOfStockError extends ValidationError

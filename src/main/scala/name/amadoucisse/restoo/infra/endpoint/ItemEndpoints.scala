@@ -36,7 +36,7 @@ final class ItemEndpoints[F[_]: Effect, A, K] extends Http4sDsl[F] {
         action.flatMap {
           case Right(saved) => Ok(saved.asJson)
           case Left(ItemAlreadyExistsError(existing)) =>
-            Conflict(s"The item with item name `$existing` already exists")
+            Conflict(s"The item with item name `${existing.name.value}` already exists")
         }
     }
 
