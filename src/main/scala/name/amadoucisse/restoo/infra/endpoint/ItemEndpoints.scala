@@ -3,20 +3,16 @@ package infra
 package endpoint
 
 import scala.language.higherKinds
-
 import cats.effect.Effect
+import cats.data.Validated
 import cats.implicits._
-
 import io.circe.generic.auto._
 import io.circe.syntax._
-
 import org.http4s.circe._
 import org.http4s.dsl.Http4sDsl
 import org.http4s.{EntityDecoder, HttpService}
-
 import domain._
 import domain.items._
-
 import service.ItemService
 
 final class ItemEndpoints[F[_]: Effect] extends Http4sDsl[F] {
@@ -27,33 +23,46 @@ final class ItemEndpoints[F[_]: Effect] extends Http4sDsl[F] {
   private def createEndpoint(itemService: ItemService[F]): HttpService[F] =
     HttpService[F] {
       case req @ POST -> Root =>
-        val action = for {
+        for {
           itemRequest <- req.as[ItemRequest]
-          item = itemRequest.asItem()
-          result <- itemService.createItem(item).value
-        } yield result
 
-        action.flatMap {
-          case Right(saved) => Ok(saved.asJson)
-          case Left(ItemAlreadyExistsError(existing)) =>
-            Conflict(s"The item with item name `${existing.name.value}` already exists")
-        }
+          response <- itemRequest.toValidatedItem match {
+            case Validated.Invalid(errors) => UnprocessableEntity(errors.asJson)
+            case Validated.Valid(item) =>
+              val action = itemService.createItem(item).value
+
+              action.flatMap {
+                case Right(saved) => Ok(saved.asJson)
+                case Left(ItemAlreadyExistsError(existing)) =>
+                  Conflict(s"The item with item name `${existing.name.value}` already exists")
+              }
+
+          }
+
+        } yield response
+
     }
 
   private def updateEndpoint(itemService: ItemService[F]): HttpService[F] =
     HttpService[F] {
       case req @ PUT -> Root / IntVar(id) =>
-        val action = for {
+        for {
           itemRequest <- req.as[ItemRequest]
-          item = itemRequest.asItem()
-          updated = item.copy(id = ItemId(id).some)
-          result <- itemService.update(updated).value
-        } yield result
 
-        action.flatMap {
-          case Right(saved) => Ok(saved.asJson)
-          case Left(ItemNotFoundError) => NotFound("Item not found")
-        }
+          response <- itemRequest.toValidatedItem match {
+            case Validated.Invalid(errors) => UnprocessableEntity(errors.asJson)
+            case Validated.Valid(item) =>
+              val updated = item.copy(id = ItemId(id).some)
+              val action = itemService.update(updated).value
+
+              action.flatMap {
+                case Right(saved) => Ok(saved.asJson)
+                case Left(ItemNotFoundError) => NotFound("Item not found")
+              }
+          }
+
+        } yield response
+
     }
 
   private def listEndpoint(itemService: ItemService[F]): HttpService[F] =
@@ -101,13 +110,20 @@ object ItemEndpoints {
     new ItemEndpoints[F].endpoints(itemService)
 
   final case class ItemRequest(name: String, price: Double, category: String) {
-    def asItem(): Item = Item(
-      name = Name(name),
-      priceInCents = Cents(price),
-      category = Category(category),
-      createdAt = OccurredAt.now,
-      updatedAt = OccurredAt.now,
-    )
+    import utils.Validator._
+
+    def toValidatedItem: ValidationResult[Item] =
+      (
+        validateNonEmpty(name, FieldError("item.name", "error.empty")),
+        validateNonNegative(price, FieldError("item.price", "error.negative")),
+        validateNonEmpty(category, FieldError("item.category", "error.empty"))).mapN {
+        (name, price, category) =>
+          Item(
+            name = Name(name),
+            priceInCents = Cents(price),
+            category = Category(category)
+          )
+      }
   }
 
 }

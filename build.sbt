@@ -41,10 +41,12 @@ libraryDependencies ++= Seq(
 
   "org.flywaydb"            %  "flyway-core"            % FlywayVersion,
   "com.github.pureconfig"   %% "pureconfig"             % PureConfigVersion,
-
 )
 
 enablePlugins(ScalafmtPlugin, JavaAppPackaging)
 
 cancelable in Global := true
 fork in run := true
+
+maxErrors := 5
+triggeredMessage := Watched.clearWhenTriggered
