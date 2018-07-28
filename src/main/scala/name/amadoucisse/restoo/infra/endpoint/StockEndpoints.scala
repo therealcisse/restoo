@@ -20,7 +20,7 @@ import domain.items._
 
 import service.StockService
 
-final class StockEndpoints[F[_]: Effect, A, K] extends Http4sDsl[F] {
+final class StockEndpoints[F[_]: Effect] extends Http4sDsl[F] {
   import StockEndpoints._
 
   implicit val stockRequestDecoder: EntityDecoder[F, StockRequest] = jsonOf
@@ -57,16 +57,18 @@ final class StockEndpoints[F[_]: Effect, A, K] extends Http4sDsl[F] {
         }
     }
 
+  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def endpoints(stockService: StockService[F]): HttpService[F] =
     createEndpoint(stockService) <+>
       getStockEndpoint(stockService)
 }
 
 object StockEndpoints {
-  def endpoints[F[_]: Effect, A, K](
+  def endpoints[F[_]: Effect](
       stockService: StockService[F],
   ): HttpService[F] =
-    new StockEndpoints[F, A, K].endpoints(stockService)
+    new StockEndpoints[F].endpoints(stockService)
 
   final case class StockRequest(delta: Int) extends AnyVal
 }
+

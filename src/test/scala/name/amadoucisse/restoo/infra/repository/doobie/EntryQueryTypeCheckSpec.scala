@@ -10,7 +10,7 @@ import doobie.util.transactor.Transactor
 
 import domain.items.ItemId
 
-import RestooArbitraries.entry
+import Arbitraries.entry
 
 class EntryQueryTypeCheckSpec extends FunSuite with Matchers with IOChecker {
   override val transactor : Transactor[IO] = testTransactor

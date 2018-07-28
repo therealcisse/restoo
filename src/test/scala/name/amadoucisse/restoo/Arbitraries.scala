@@ -52,4 +52,4 @@ trait Arbitraries {
   }
 }
 
-object RestooArbitraries extends Arbitraries
+object Arbitraries extends Arbitraries

@@ -19,7 +19,7 @@ import domain.items._
 
 import service.ItemService
 
-final class ItemEndpoints[F[_]: Effect, A, K] extends Http4sDsl[F] {
+final class ItemEndpoints[F[_]: Effect] extends Http4sDsl[F] {
   import ItemEndpoints._
 
   implicit val createItemRequestDecoder: EntityDecoder[F, ItemRequest] = jsonOf
@@ -85,6 +85,7 @@ final class ItemEndpoints[F[_]: Effect, A, K] extends Http4sDsl[F] {
         }
     }
 
+  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def endpoints(itemService: ItemService[F]): HttpService[F] =
     createEndpoint(itemService) <+>
       updateEndpoint(itemService) <+>
@@ -94,10 +95,10 @@ final class ItemEndpoints[F[_]: Effect, A, K] extends Http4sDsl[F] {
 }
 
 object ItemEndpoints {
-  def endpoints[F[_]: Effect, A, K](
+  def endpoints[F[_]: Effect](
       itemService: ItemService[F],
   ): HttpService[F] =
-    new ItemEndpoints[F, A, K].endpoints(itemService)
+    new ItemEndpoints[F].endpoints(itemService)
 
   final case class ItemRequest(name: String, price: Double, category: String) {
     def asItem(): Item = Item(

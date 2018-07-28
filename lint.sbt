@@ -1,7 +1,5 @@
 wartremoverErrors ++= Warts.unsafe
 
-wartremoverErrors -= Wart.Any
-wartremoverErrors -= Wart.DefaultArguments
 wartremoverErrors -= Wart.NonUnitStatements
 
 scalacOptions ++= Seq(

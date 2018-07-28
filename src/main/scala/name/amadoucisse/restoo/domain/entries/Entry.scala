@@ -4,6 +4,7 @@ package entries
 
 import items.ItemId
 
+@SuppressWarnings(Array("org.wartremover.warts.DefaultArguments"))
 final case class Entry(
     itemId: ItemId,
     delta: Delta,
