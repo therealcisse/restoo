@@ -34,6 +34,8 @@ libraryDependencies ++= Seq(
   "org.http4s"              %% "http4s-circe"           % Http4sVersion,
   "org.http4s"              %% "http4s-dsl"             % Http4sVersion,
 
+  "org.http4s"              %% "http4s-prometheus-server-metrics" % Http4sVersion,
+
   "org.scalacheck"          %% "scalacheck"             % ScalaCheckVersion % Test,
   "org.scalatest"           %% "scalatest"              % ScalaTestVersion  % Test,
 

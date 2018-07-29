@@ -1,39 +1,51 @@
 package name.amadoucisse.restoo
 
-import config.{AppConfig, DatabaseConfig}
 import cats.effect.{Effect, IO}
-import fs2.{Stream, StreamApp}
-import org.http4s.server.blaze.BlazeBuilder
+import cats.implicits._
 
-import service.{ItemService, StockService}
+import fs2.{Stream, StreamApp}
+
+import io.prometheus.client.CollectorRegistry
+
+import config.{AppConfig, DatabaseConfig}
+import domain.items.ItemValidationInterpreter
 import infra.endpoint.{ItemEndpoints, StockEndpoints}
 import infra.repository.doobie.{DoobieEntryRepositoryInterpreter, DoobieItemRepositoryInterpreter}
+import service.{ItemService, StockService}
 
-import domain.items.ItemValidationInterpreter
+import org.http4s.server.blaze.BlazeBuilder
+import org.http4s.server.prometheus.{PrometheusExportService, PrometheusMetrics}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 
-object Server extends StreamApp[IO] {
-  def stream(args: List[String], requestShutdown: IO[Unit]): Stream[IO, StreamApp.ExitCode] =
-    ServerStream.stream[IO]
-}
+object Server extends ServerStream[IO]
 
-object ServerStream {
+class ServerStream[F[_]: Effect] extends StreamApp[F] {
 
-  def stream[F[_]: Effect]: Stream[F, StreamApp.ExitCode] =
+  @SuppressWarnings(Array("org.wartremover.warts.Any"))
+  final def stream(args: List[String], requestShutdown: F[Unit]): Stream[F, StreamApp.ExitCode] =
     for {
       conf <- Stream.eval(AppConfig.load[F])
       xa <- Stream.eval(DatabaseConfig.dbTransactor(conf.db))
       _ <- Stream.eval(DatabaseConfig.initializeDb(conf.db, xa))
+
       itemRepo = DoobieItemRepositoryInterpreter(xa)
       entryRepo = DoobieEntryRepositoryInterpreter(xa)
       itemValidation = ItemValidationInterpreter(itemRepo)
       itemService = ItemService(itemRepo, itemValidation)
       stockService = StockService(entryRepo, itemRepo)
+
+      metricsRegistry <- Stream.eval(CollectorRegistry.defaultRegistry.pure[F])
+      metrics <- Stream.eval(PrometheusMetrics[F](metricsRegistry, prefix = conf.namespace).pure[F])
+      prometheusExportService <- Stream.eval(PrometheusExportService(metricsRegistry).pure[F])
+
+      service <- Stream.eval(
+        metrics(ItemEndpoints.endpoints(itemService) <+> StockEndpoints.endpoints(stockService)))
+
       exitCode <- BlazeBuilder[F]
         .bindHttp(conf.server.port, conf.server.address)
-        .mountService(ItemEndpoints.endpoints(itemService), "/api/v1/items")
-        .mountService(StockEndpoints.endpoints(stockService), "/api/v1/items")
+        .mountService(service, "/api/v1/items")
+        .mountService(prometheusExportService.service)
         .serve
     } yield exitCode
 }

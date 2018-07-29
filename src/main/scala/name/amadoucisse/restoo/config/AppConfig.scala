@@ -5,7 +5,11 @@ import cats.effect.Sync
 import cats.implicits._
 import pureconfig.error.ConfigReaderException
 
-case class AppConfig(db: DatabaseConfig, server: ServerConfig)
+case class AppConfig(
+  namespace: String,
+  db: DatabaseConfig,
+  server: ServerConfig
+)
 
 object AppConfig {
 
