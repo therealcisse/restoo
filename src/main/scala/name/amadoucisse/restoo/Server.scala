@@ -31,7 +31,7 @@ object ServerStream {
       itemService = ItemService(itemRepo, itemValidation)
       stockService = StockService(entryRepo, itemRepo)
       exitCode <- BlazeBuilder[F]
-        .bindHttp(8080, "localhost")
+        .bindHttp(conf.server.port, conf.server.address)
         .mountService(ItemEndpoints.endpoints(itemService), "/api/v1/items")
         .mountService(StockEndpoints.endpoints(stockService), "/api/v1/items")
         .serve
