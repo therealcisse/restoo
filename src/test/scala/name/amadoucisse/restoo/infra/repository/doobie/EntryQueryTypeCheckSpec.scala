@@ -21,7 +21,7 @@ class EntryQueryTypeCheckSpec extends FunSuite with Matchers with IOChecker {
     entry.arbitrary.sample.map { u =>
       check(insert(u))
     }
-    count(ItemId(1))
+    check(count(ItemId(1)))
   }
 }
 

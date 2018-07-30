@@ -27,7 +27,7 @@ final class StockService[F[_]: Monad](
 
     getAction
       .flatMap { currentStock =>
-        if (currentStock.quantity + delta.value < 0) {
+        if (currentStock.quantity + delta.value < 0L) {
           outOfStockErrorAction
         } else {
           addAction

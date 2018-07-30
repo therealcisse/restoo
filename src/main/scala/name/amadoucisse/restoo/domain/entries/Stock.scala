@@ -9,7 +9,7 @@ import items.Item
 
 final case class Stock(
     item: Item,
-    quantity: Int,
+    quantity: Long,
 )
 
 object Stock {

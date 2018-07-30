@@ -25,11 +25,11 @@ final class EntryRepositoryInMemoryInterpreter[F[_]: Applicative]
     toSave.pure[F]
   }
 
-  def count(id: ItemId): F[Option[Int]] = {
+  def count(id: ItemId): F[Option[Long]] = {
     val itemEntries = cache.filter(_._2.itemId.value == id.value)
 
-    if (itemEntries.isEmpty) Option.empty[Int].pure[F]
-    else itemEntries.foldLeft(0)(_ + _._2.delta.value).some.pure[F]
+    if (itemEntries.isEmpty) Option.empty[Long].pure[F]
+    else itemEntries.foldLeft(0L)(_ + _._2.delta.value).some.pure[F]
   }
 }
 

@@ -18,12 +18,12 @@ private object EntrySQL extends SQLCommon {
     VALUES (${entry.itemId}, ${entry.delta})
   """.update
 
-  def count(itemId: ItemId): Query0[Option[Int]] = sql"""
+  def count(itemId: ItemId): Query0[Option[Long]] = sql"""
     SELECT
       SUM(delta) as quantity
     FROM entries
     WHERE item_id = $itemId
-  """.query[Option[Int]]
+  """.query[Option[Long]]
 
 }
 
@@ -37,7 +37,7 @@ final class DoobieEntryRepositoryInterpreter[F[_]: Monad](val xa: Transactor[F])
       .map(id => entry.copy(id = EntryId(id).some))
       .transact(xa)
 
-  def count(id: ItemId): F[Option[Int]] = EntrySQL.count(id).unique.transact(xa)
+  def count(id: ItemId): F[Option[Long]] = EntrySQL.count(id).unique.transact(xa)
 }
 
 object DoobieEntryRepositoryInterpreter {
