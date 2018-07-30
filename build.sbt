@@ -60,3 +60,6 @@ fork in run := true
 
 maxErrors := 5
 triggeredMessage := Watched.clearWhenTriggered
+
+
+scalafmtOnCompile := true

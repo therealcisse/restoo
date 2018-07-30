@@ -6,9 +6,9 @@ import cats.implicits._
 import pureconfig.error.ConfigReaderException
 
 case class AppConf(
-  namespace: String,
-  db: DatabaseConfig,
-  server: ServerConf
+    namespace: String,
+    db: DatabaseConfig,
+    server: ServerConf
 )
 
 object AppConf {

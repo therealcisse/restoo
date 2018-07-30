@@ -59,4 +59,3 @@ class ServerStream[F[_]: Effect] extends StreamApp[F] {
         .serve
     } yield exitCode
 }
-

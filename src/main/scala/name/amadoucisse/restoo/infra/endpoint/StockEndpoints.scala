@@ -71,4 +71,3 @@ object StockEndpoints {
 
   final case class StockRequest(delta: Int) extends AnyVal
 }
-

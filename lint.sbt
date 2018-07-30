@@ -51,3 +51,15 @@ scalacOptions ++= Seq(
   "-Ywarn-value-discard"               // Warn when non-Unit expression results are unused.
   // format: on
 )
+
+scalacOptions in (Compile, console) ~= (_.filterNot(
+  Set(
+    "-Ywarn-unused:imports",
+    "-Xfatal-warnings"
+  )))
+
+scalacOptions in (Test, console) ~= (_.filterNot(
+  Set(
+    "-Ywarn-unused:imports",
+    "-Xfatal-warnings"
+  )))
