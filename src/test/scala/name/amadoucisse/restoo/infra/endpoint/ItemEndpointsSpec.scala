@@ -2,6 +2,7 @@ package name.amadoucisse.restoo
 package infra
 package endpoint
 
+import config.SwaggerConf
 import domain.items._
 import domain.entries._
 import service.{ItemService, StockService}
@@ -36,7 +37,9 @@ class ItemEndpointsSpec
     val entryRepo = EntryRepositoryInMemoryInterpreter[IO]
     val stockService = StockService(entryRepo, itemRepo)
 
-    val itemHttpService = ItemEndpoints.endpoints[IO](itemService, stockService)
+    val swaggerConf = SwaggerConf("localhost", Nil)
+
+    val itemHttpService = ItemEndpoints.endpoints[IO](itemService, stockService, swaggerConf)
 
     val item = ItemEndpoints.ItemRequest(name = "Item 0", price = 99.99, category = "Food & Drinks")
 
@@ -60,7 +63,9 @@ class ItemEndpointsSpec
     val entryRepo = EntryRepositoryInMemoryInterpreter[IO]
     val stockService = StockService(entryRepo, itemRepo)
 
-    val itemHttpService = ItemEndpoints.endpoints[IO](itemService, stockService)
+    val swaggerConf = SwaggerConf("localhost", Nil)
+
+    val itemHttpService = ItemEndpoints.endpoints[IO](itemService, stockService, swaggerConf)
 
     implicit val itemDecoder: EntityDecoder[IO, Item] = jsonOf
 
@@ -101,7 +106,9 @@ class ItemEndpointsSpec
     val entryRepo = EntryRepositoryInMemoryInterpreter[IO]
     val stockService = StockService(entryRepo, itemRepo)
 
-    val itemHttpService: HttpService[IO] = ItemEndpoints.endpoints(itemService, stockService)
+    val swaggerConf = SwaggerConf("localhost", Nil)
+
+    val itemHttpService = ItemEndpoints.endpoints[IO](itemService, stockService, swaggerConf)
 
     implicit val itemDecoder: EntityDecoder[IO, Item] = jsonOf
 
@@ -144,7 +151,9 @@ class ItemEndpointsSpec
     val entryRepo = EntryRepositoryInMemoryInterpreter[IO]
     val stockService = StockService(entryRepo, itemRepo)
 
-    val itemHttpService = ItemEndpoints.endpoints[IO](itemService, stockService)
+    val swaggerConf = SwaggerConf("localhost", Nil)
+
+    val itemHttpService = ItemEndpoints.endpoints[IO](itemService, stockService, swaggerConf)
 
     implicit val itemDecoder: EntityDecoder[IO, Item] = jsonOf
     implicit val stockDecoder: EntityDecoder[IO, Stock] = jsonOf
@@ -209,7 +218,9 @@ class ItemEndpointsSpec
     val entryRepo = EntryRepositoryInMemoryInterpreter[IO]
     val stockService = StockService(entryRepo, itemRepo)
 
-    val itemHttpService = ItemEndpoints.endpoints[IO](itemService, stockService)
+    val swaggerConf = SwaggerConf("localhost", Nil)
+
+    val itemHttpService = ItemEndpoints.endpoints[IO](itemService, stockService, swaggerConf)
 
     implicit val itemDecoder: EntityDecoder[IO, Item] = jsonOf
     implicit val stockDecoder: EntityDecoder[IO, Stock] = jsonOf

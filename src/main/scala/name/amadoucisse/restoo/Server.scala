@@ -9,10 +9,11 @@ import io.prometheus.client.CollectorRegistry
 
 import config.{AppConf, DatabaseConfig}
 import domain.items.ItemValidationInterpreter
-import infra.endpoint.ItemEndpoints
+import infra.endpoint.{Index, ItemEndpoints}
 import infra.repository.doobie.{DoobieEntryRepositoryInterpreter, DoobieItemRepositoryInterpreter}
 import service.{ItemService, StockService}
 
+import org.http4s.server.staticcontent.{MemoryCache, WebjarService, webjarService}
 import org.http4s.server.blaze.BlazeBuilder
 import org.http4s.server.prometheus.{PrometheusExportService, PrometheusMetrics}
 
@@ -43,7 +44,7 @@ class ServerStream[F[_]: Effect] extends StreamApp[F] {
         PrometheusMetrics[F](metricsRegistry, prefix = conf.namespace).pure[F])
       prometheusExportService <- Stream.eval(PrometheusExportService(metricsRegistry).pure[F])
 
-      endpoints = ItemEndpoints.endpoints(itemService, stockService)
+      endpoints = ItemEndpoints.endpoints(itemService, stockService, conf.swagger)
 
       service <- Stream.eval(
         withMetrics(
@@ -54,8 +55,12 @@ class ServerStream[F[_]: Effect] extends StreamApp[F] {
 
       exitCode <- BlazeBuilder[F]
         .bindHttp(conf.server.port, conf.server.address)
+        .mountService(Index.endpoints)
         .mountService(service, "/api/v1/items")
         .mountService(prometheusExportService.service)
+        .mountService(
+          webjarService(WebjarService.Config(cacheStrategy = MemoryCache[F])),
+          "/assets")
         .serve
     } yield exitCode
 }

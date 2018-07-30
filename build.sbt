@@ -15,9 +15,11 @@ val PureConfigVersion = "0.9.1"
 
 val LogbackVersion    = "1.2.3"
 
+val SwaggerUIVersion  = "3.9.3"
+
 val OpencensusHtt4sVersion   = "0.6.0"
-val OpenCensusLoggingVersion = "0.15.0"
-val OpenCensusZipkinVersion  = "0.15.0"
+val OpencensusLoggingVersion = "0.15.0"
+val OpencensusZipkinVersion  = "0.15.0"
 
 libraryDependencies ++= Seq(
   "org.typelevel"           %% "cats-core"              % CatsVersion,
@@ -48,9 +50,11 @@ libraryDependencies ++= Seq(
   "org.flywaydb"            %  "flyway-core"            % FlywayVersion,
   "com.github.pureconfig"   %% "pureconfig"             % PureConfigVersion,
 
+  "org.webjars"             % "swagger-ui"              % SwaggerUIVersion,
+
   "com.github.sebruck"      %% "opencensus-scala-http4s"              % OpencensusHtt4sVersion,
-  "io.opencensus"           % "opencensus-exporter-trace-logging"     % OpenCensusLoggingVersion,
-  "io.opencensus"           % "opencensus-exporter-trace-zipkin"      % OpenCensusZipkinVersion,
+  "io.opencensus"           % "opencensus-exporter-trace-logging"     % OpencensusLoggingVersion,
+  "io.opencensus"           % "opencensus-exporter-trace-zipkin"      % OpencensusZipkinVersion,
 )
 
 enablePlugins(ScalafmtPlugin, JavaAppPackaging)
@@ -60,6 +64,5 @@ fork in run := true
 
 maxErrors := 5
 triggeredMessage := Watched.clearWhenTriggered
-
 
 scalafmtOnCompile := true
