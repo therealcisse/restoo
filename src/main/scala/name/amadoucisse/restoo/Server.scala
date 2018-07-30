@@ -16,6 +16,9 @@ import service.{ItemService, StockService}
 import org.http4s.server.blaze.BlazeBuilder
 import org.http4s.server.prometheus.{PrometheusExportService, PrometheusMetrics}
 
+import io.opencensus.scala.http4s.TracingMiddleware
+import io.opencensus.scala.http.ServiceData
+
 import scala.concurrent.ExecutionContext.Implicits.global
 
 object Server extends ServerStream[IO]
@@ -36,11 +39,18 @@ class ServerStream[F[_]: Effect] extends StreamApp[F] {
       stockService = StockService(entryRepo, itemRepo)
 
       metricsRegistry <- Stream.eval(CollectorRegistry.defaultRegistry.pure[F])
-      metrics <- Stream.eval(PrometheusMetrics[F](metricsRegistry, prefix = conf.namespace).pure[F])
+      withMetrics <- Stream.eval(
+        PrometheusMetrics[F](metricsRegistry, prefix = conf.namespace).pure[F])
       prometheusExportService <- Stream.eval(PrometheusExportService(metricsRegistry).pure[F])
 
+      endpoints = ItemEndpoints.endpoints(itemService) <+> StockEndpoints.endpoints(stockService)
+
       service <- Stream.eval(
-        metrics(ItemEndpoints.endpoints(itemService) <+> StockEndpoints.endpoints(stockService)))
+        withMetrics(
+          TracingMiddleware.withoutSpan(
+            endpoints,
+            ServiceData(name = "Restoo", version = "1.0.0")
+          )))
 
       exitCode <- BlazeBuilder[F]
         .bindHttp(conf.server.port, conf.server.address)
@@ -49,3 +59,4 @@ class ServerStream[F[_]: Effect] extends StreamApp[F] {
         .serve
     } yield exitCode
 }
+
