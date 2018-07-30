@@ -9,7 +9,7 @@ import io.prometheus.client.CollectorRegistry
 
 import config.{AppConf, DatabaseConfig}
 import domain.items.ItemValidationInterpreter
-import infra.endpoint.{ItemEndpoints, StockEndpoints}
+import infra.endpoint.ItemEndpoints
 import infra.repository.doobie.{DoobieEntryRepositoryInterpreter, DoobieItemRepositoryInterpreter}
 import service.{ItemService, StockService}
 
@@ -43,7 +43,7 @@ class ServerStream[F[_]: Effect] extends StreamApp[F] {
         PrometheusMetrics[F](metricsRegistry, prefix = conf.namespace).pure[F])
       prometheusExportService <- Stream.eval(PrometheusExportService(metricsRegistry).pure[F])
 
-      endpoints = ItemEndpoints.endpoints(itemService) <+> StockEndpoints.endpoints(stockService)
+      endpoints = ItemEndpoints.endpoints(itemService, stockService)
 
       service <- Stream.eval(
         withMetrics(

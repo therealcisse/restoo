@@ -13,7 +13,7 @@ import domain.items.ItemId
 import Arbitraries.entry
 
 class EntryQueryTypeCheckSpec extends FunSuite with Matchers with IOChecker {
-  override val transactor : Transactor[IO] = testTransactor
+  override val transactor: Transactor[IO] = testTransactor
 
   import EntrySQL._
 
@@ -24,5 +24,3 @@ class EntryQueryTypeCheckSpec extends FunSuite with Matchers with IOChecker {
     check(count(ItemId(1)))
   }
 }
-
-

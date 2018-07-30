@@ -11,8 +11,7 @@ import domain.items._
 
 import scala.collection.concurrent.TrieMap
 
-final class ItemRepositoryInMemoryInterpreter[F[_]: Applicative]
-extends ItemRepositoryAlgebra[F] {
+final class ItemRepositoryInMemoryInterpreter[F[_]: Applicative] extends ItemRepositoryAlgebra[F] {
 
   private val cache = new TrieMap[ItemId, Item]
   private val random = new Random
@@ -24,7 +23,7 @@ extends ItemRepositoryAlgebra[F] {
     toSave.pure[F]
   }
 
-  def update(item: Item): F[Option[Item]] = item.id.traverse{ id =>
+  def update(item: Item): F[Option[Item]] = item.id.traverse { id =>
     cache.update(id, item)
     item.pure[F]
   }
@@ -43,4 +42,3 @@ object ItemRepositoryInMemoryInterpreter {
   def apply[F[_]: Applicative]: ItemRepositoryInMemoryInterpreter[F] =
     new ItemRepositoryInMemoryInterpreter[F]
 }
-

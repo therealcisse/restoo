@@ -13,7 +13,7 @@ import domain.items.ItemId
 import Arbitraries.item
 
 class ItemQueryTypeCheckSpec extends FunSuite with Matchers with IOChecker {
-  override val transactor : Transactor[IO] = testTransactor
+  override val transactor: Transactor[IO] = testTransactor
 
   import ItemSQL._
 
@@ -28,4 +28,3 @@ class ItemQueryTypeCheckSpec extends FunSuite with Matchers with IOChecker {
     check(delete(ItemId(1)))
   }
 }
-

@@ -13,12 +13,15 @@ import org.http4s.dsl.Http4sDsl
 import org.http4s.{EntityDecoder, HttpService}
 import domain._
 import domain.items._
-import service.ItemService
+import domain.entries._
+import service.{ItemService, StockService}
 
 final class ItemEndpoints[F[_]: Effect] extends Http4sDsl[F] {
   import ItemEndpoints._
 
   implicit val createItemRequestDecoder: EntityDecoder[F, ItemRequest] = jsonOf
+
+  implicit val stockRequestDecoder: EntityDecoder[F, StockRequest] = jsonOf
 
   private def createEndpoint(itemService: ItemService[F]): HttpService[F] =
     HttpService[F] {
@@ -94,20 +97,55 @@ final class ItemEndpoints[F[_]: Effect] extends Http4sDsl[F] {
         }
     }
 
+  private def createEndpoint(stockService: StockService[F]): HttpService[F] =
+    HttpService[F] {
+      case req @ PUT -> Root / IntVar(itemId) / "stocks" =>
+        val action = for {
+          stockRequest <- req.as[StockRequest]
+          result <- stockService.createEntry(ItemId(itemId), Delta(stockRequest.delta)).value
+        } yield result
+
+        action.flatMap {
+          case Right(saved) => Ok(saved.asJson)
+          case Left(ItemNotFoundError) => NotFound("Item not found")
+          case Left(NoStockError(item)) => Ok(Stock(item, 0).asJson)
+          case Left(ItemOutOfStockError) =>
+            Conflict("Item out of stock")
+          case _ => InternalServerError()
+        }
+
+    }
+
+  private def getStockEndpoint(stockService: StockService[F]): HttpService[F] =
+    HttpService[F] {
+      case GET -> Root / IntVar(itemId) / "stocks" =>
+        val action = stockService.getStock(ItemId(itemId)).value
+
+        action.flatMap {
+          case Right(stock) => Ok(stock.asJson)
+          case Left(ItemNotFoundError) => NotFound("Item not found")
+          case Left(NoStockError(item)) => Ok(Stock(item, 0).asJson)
+          case _ => InternalServerError()
+        }
+    }
+
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
-  def endpoints(itemService: ItemService[F]): HttpService[F] =
+  def endpoints(itemService: ItemService[F], stockService: StockService[F]): HttpService[F] =
     createEndpoint(itemService) <+>
       updateEndpoint(itemService) <+>
       deleteItemEndpoint(itemService) <+>
       getItemEndpoint(itemService) <+>
-      listEndpoint(itemService)
+      listEndpoint(itemService) <+>
+      createEndpoint(stockService) <+>
+      getStockEndpoint(stockService)
 }
 
 object ItemEndpoints {
   def endpoints[F[_]: Effect](
       itemService: ItemService[F],
+      stockService: StockService[F],
   ): HttpService[F] =
-    new ItemEndpoints[F].endpoints(itemService)
+    new ItemEndpoints[F].endpoints(itemService, stockService)
 
   final case class ItemRequest(name: String, price: Double, category: String) {
     import utils.Validator._
@@ -126,4 +164,5 @@ object ItemEndpoints {
       }
   }
 
+  final case class StockRequest(delta: Int) extends AnyVal
 }
