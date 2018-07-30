@@ -7,7 +7,7 @@ import fs2.{Stream, StreamApp}
 
 import io.prometheus.client.CollectorRegistry
 
-import config.{AppConfig, DatabaseConfig}
+import config.{AppConf, DatabaseConfig}
 import domain.items.ItemValidationInterpreter
 import infra.endpoint.{ItemEndpoints, StockEndpoints}
 import infra.repository.doobie.{DoobieEntryRepositoryInterpreter, DoobieItemRepositoryInterpreter}
@@ -28,7 +28,7 @@ class ServerStream[F[_]: Effect] extends StreamApp[F] {
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   final def stream(args: List[String], requestShutdown: F[Unit]): Stream[F, StreamApp.ExitCode] =
     for {
-      conf <- Stream.eval(AppConfig.load[F])
+      conf <- Stream.eval(AppConf.load[F])
       xa <- Stream.eval(DatabaseConfig.dbTransactor(conf.db))
       _ <- Stream.eval(DatabaseConfig.initializeDb(conf.db, xa))
 

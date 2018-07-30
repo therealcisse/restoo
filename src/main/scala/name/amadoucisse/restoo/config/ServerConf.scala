@@ -1,7 +1,7 @@
 package name.amadoucisse.restoo
 package config
 
-case class ServerConfig(
+case class ServerConf(
     address: String,
     port: Int
 )

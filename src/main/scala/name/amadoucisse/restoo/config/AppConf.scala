@@ -5,13 +5,13 @@ import cats.effect.Sync
 import cats.implicits._
 import pureconfig.error.ConfigReaderException
 
-case class AppConfig(
+case class AppConf(
   namespace: String,
   db: DatabaseConfig,
-  server: ServerConfig
+  server: ServerConf
 )
 
-object AppConfig {
+object AppConf {
 
   import pureconfig._
 
@@ -19,9 +19,9 @@ object AppConfig {
     * Loads the pet store config using PureConfig.  If configuration is invalid we will
     * return an error.  This should halt the application from starting up.
     */
-  def load[F[_]](implicit E: Sync[F]): F[AppConfig] =
-    E.delay(loadConfig[AppConfig]("restoo")).flatMap {
+  def load[F[_]](implicit E: Sync[F]): F[AppConf] =
+    E.delay(loadConfig[AppConf]("restoo")).flatMap {
       case Right(ok) => E.pure(ok)
-      case Left(e) => E.raiseError(new ConfigReaderException[AppConfig](e))
+      case Left(e) => E.raiseError(new ConfigReaderException[AppConf](e))
     }
 }
