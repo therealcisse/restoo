@@ -35,7 +35,7 @@ final class ItemRepositoryInMemoryInterpreter[F[_]: Applicative] extends ItemRep
   def delete(itemId: ItemId): F[Option[Item]] =
     cache.remove(itemId).pure[F]
 
-  def list(): F[Vector[Item]] = cache.values.toVector.sortBy(_.name.value).pure[F]
+  def list(): fs2.Stream[F, Item] = fs2.Stream.emits(cache.values.toVector.sortBy(_.name.value))
 }
 
 object ItemRepositoryInMemoryInterpreter {

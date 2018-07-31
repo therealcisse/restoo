@@ -28,7 +28,7 @@ final class ItemService[F[_]: Monad](
       saved <- EitherT.fromOptionF(itemRepo.update(item), ItemNotFoundError)
     } yield saved
 
-  def list(): F[Vector[Item]] =
+  def list(): fs2.Stream[F, Item] =
     itemRepo.list()
 }
 

@@ -73,10 +73,9 @@ final class ItemEndpoints[F[_]: Effect] extends Http4sDsl[F] {
   private def listEndpoint(itemService: ItemService[F]): HttpService[F] =
     HttpService[F] {
       case GET -> Root =>
-        for {
-          retrieved <- itemService.list()
-          resp <- Ok(retrieved.asJson)
-        } yield resp
+        Ok(
+          fs2.Stream("[") ++ itemService.list().map(_.asJson.noSpaces).intersperse(",") ++ fs2
+            .Stream("]"))
     }
 
   private def deleteItemEndpoint(itemService: ItemService[F]): HttpService[F] =

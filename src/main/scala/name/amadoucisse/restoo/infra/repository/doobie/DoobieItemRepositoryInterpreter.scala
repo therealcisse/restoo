@@ -98,7 +98,7 @@ final class DoobieItemRepositoryInterpreter[F[_]: Monad](val xa: Transactor[F])
   def delete(itemId: ItemId): F[Option[Item]] =
     OptionT(get(itemId)).semiflatMap(item => ItemSQL.delete(itemId).run.transact(xa).as(item)).value
 
-  def list(): F[Vector[Item]] = ItemSQL.selectAll.to[Vector].transact(xa)
+  def list(): fs2.Stream[F, Item] = ItemSQL.selectAll.stream.transact(xa)
 }
 
 object DoobieItemRepositoryInterpreter {
