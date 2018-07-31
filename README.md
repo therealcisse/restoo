@@ -34,6 +34,14 @@ E. g:
 $ SWAGGER_URL="localhost:9009" RESTOO_SERVER_PORT=9009 sbt run
 ```
 
+Running inside docker:
+
+```sh
+$ sbt run docker:publishLocal
+$ docker run -it --rm -p 8080:8080 restoo:$VERSION
+```
+
+
 ## REST endpoints
 
 See the swagger UI.
