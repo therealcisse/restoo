@@ -1,6 +1,6 @@
 organization    := "name.amadoucisse"
 name            := "restoo"
-version         := "0.1.0"
+version         := "0.2.0-SNAPSHOT"
 scalaVersion    := "2.12.6"
 
 val CatsVersion       = "1.1.0"
