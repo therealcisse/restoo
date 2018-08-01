@@ -4,7 +4,7 @@ package service
 import cats.Monad
 import cats.data.EitherT
 
-import domain.{ItemNotFoundError, ItemOutOfStockError, NoStockError, OccurredAt, ValidationError}
+import domain.{AppError, ItemOutOfStockError, NoStockError, OccurredAt}
 import domain.items.{ItemId, ItemRepositoryAlgebra}
 import domain.entries.{Delta, Entry, EntryRepositoryAlgebra, Stock}
 
@@ -12,13 +12,13 @@ final class StockService[F[_]: Monad](
     entryRepo: EntryRepositoryAlgebra[F],
     itemRepo: ItemRepositoryAlgebra[F]) {
 
-  def createEntry(itemId: ItemId, delta: Delta): EitherT[F, ValidationError, Stock] = {
-    val getAction: EitherT[F, ValidationError, Stock] = getStock(itemId)
+  def createEntry(itemId: ItemId, delta: Delta): EitherT[F, AppError, Stock] = {
+    val getAction: EitherT[F, AppError, Stock] = EitherT(getStock(itemId))
 
-    val outOfStockErrorAction: EitherT[F, ValidationError, Stock] =
+    val outOfStockErrorAction: EitherT[F, AppError, Stock] =
       EitherT.leftT[F, Stock](ItemOutOfStockError)
 
-    val noStockErrorAction: EitherT[F, ValidationError, Stock] =
+    val noStockErrorAction: EitherT[F, AppError, Stock] =
       EitherT.leftT[F, Stock](ItemOutOfStockError)
 
     val addAction = EitherT
@@ -43,13 +43,13 @@ final class StockService[F[_]: Monad](
       }
   }
 
-  def getStock(itemId: ItemId): EitherT[F, ValidationError, Stock] =
-    EitherT.fromOptionF(itemRepo.get(itemId), ItemNotFoundError).flatMap { item =>
+  def getStock(itemId: ItemId): F[AppError Either Stock] =
+    EitherT(itemRepo.get(itemId)).flatMap { item =>
       EitherT
-        .fromOptionF(entryRepo.count(itemId), NoStockError(item))
+        .fromOptionF(entryRepo.count(itemId), NoStockError(item): AppError)
         .subflatMap(quantity => Right(Stock(item, quantity)))
 
-    }
+    }.value
 
 }
 

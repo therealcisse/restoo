@@ -4,7 +4,7 @@ package endpoint
 
 import scala.language.higherKinds
 import cats.effect.Effect
-import cats.data.Validated
+import cats.data.EitherT
 import cats.implicits._
 import io.circe.Json
 import io.circe.generic.auto._
@@ -28,45 +28,43 @@ final class ItemEndpoints[F[_]: Effect] extends Http4sDsl[F] {
   private def createEndpoint(itemService: ItemService[F]): HttpService[F] =
     HttpService[F] {
       case req @ POST -> Root =>
-        for {
-          itemRequest <- req.as[ItemRequest]
+        val action = for {
+          itemRequest <- EitherT.right[AppError](req.as[ItemRequest])
 
-          response <- itemRequest.toValidatedItem match {
-            case Validated.Invalid(errors) => UnprocessableEntity(errors.asJson)
-            case Validated.Valid(item) =>
-              val action = itemService.createItem(item).value
+          item <- EitherT.fromEither[F](itemRequest.validate)
 
-              action.flatMap {
-                case Right(saved) => Ok(saved.asJson)
-                case Left(ItemAlreadyExistsError(existing)) =>
-                  Conflict(s"The item with item name `${existing.name.value}` already exists")
-              }
+          result <- EitherT(itemService.createItem(item).map(_.leftWiden[AppError]))
+        } yield result
 
-          }
-
-        } yield response
+        action.value.flatMap {
+          case Right(saved) => Ok(saved.asJson)
+          case Left(ErrorListing(errors)) => UnprocessableEntity(errors.asJson)
+          case Left(ItemAlreadyExistsError(existing)) =>
+            Conflict(s"The item with item name `${existing.name.value}` already exists")
+          case _ => BadRequest()
+        }
 
     }
 
   private def updateEndpoint(itemService: ItemService[F]): HttpService[F] =
     HttpService[F] {
       case req @ (PUT | PATCH) -> Root / IntVar(id) =>
-        for {
-          itemRequest <- req.as[ItemRequest]
+        val action = for {
+          itemRequest <- EitherT.right[AppError](req.as[ItemRequest])
 
-          response <- itemRequest.toValidatedItem match {
-            case Validated.Invalid(errors) => UnprocessableEntity(errors.asJson)
-            case Validated.Valid(item) =>
-              val updated = item.copy(id = ItemId(id).some)
-              val action = itemService.update(updated).value
+          item <- EitherT.fromEither[F](itemRequest.validate)
 
-              action.flatMap {
-                case Right(saved) => Ok(saved.asJson)
-                case Left(ItemNotFoundError) => NotFound("Item not found")
-              }
-          }
+          updated = item.copy(id = ItemId(id).some)
+          result <- EitherT(itemService.update(updated).map(_.leftWiden[AppError]))
 
-        } yield response
+        } yield result
+
+        action.value.flatMap {
+          case Right(saved) => Ok(saved.asJson)
+          case Left(ErrorListing(errors)) => UnprocessableEntity(errors.asJson)
+          case Left(ItemNotFoundError) => NotFound("Item not found")
+          case _ => BadRequest()
+        }
 
     }
 
@@ -90,7 +88,7 @@ final class ItemEndpoints[F[_]: Effect] extends Http4sDsl[F] {
   private def getItemEndpoint(itemService: ItemService[F]): HttpService[F] =
     HttpService[F] {
       case GET -> Root / IntVar(id) =>
-        val action = itemService.getItem(ItemId(id)).value
+        val action = itemService.getItem(ItemId(id))
 
         action.flatMap {
           case Right(item) => Ok(item.asJson)
@@ -120,7 +118,7 @@ final class ItemEndpoints[F[_]: Effect] extends Http4sDsl[F] {
   private def getStockEndpoint(stockService: StockService[F]): HttpService[F] =
     HttpService[F] {
       case GET -> Root / IntVar(itemId) / "stocks" =>
-        val action = stockService.getStock(ItemId(itemId)).value
+        val action = stockService.getStock(ItemId(itemId))
 
         action.flatMap {
           case Right(stock) => Ok(stock.asJson)
@@ -162,8 +160,8 @@ object ItemEndpoints {
   final case class ItemRequest(name: String, price: Double, category: String) {
     import utils.Validator._
 
-    def toValidatedItem: ValidationResult[Item] =
-      (
+    def validate: Either[ErrorListing, Item] = {
+      val item = (
         validateNonEmpty(name, FieldError("item.name", "error.empty")),
         validateNonNegative(price, FieldError("item.price", "error.negative")),
         validateNonEmpty(category, FieldError("item.category", "error.empty"))).mapN {
@@ -174,6 +172,9 @@ object ItemEndpoints {
             category = Category(category)
           )
       }
+
+      item.leftMap(ErrorListing).toEither
+    }
   }
 
   final case class StockRequest(delta: Int) extends AnyVal

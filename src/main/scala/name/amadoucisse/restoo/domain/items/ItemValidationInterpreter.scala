@@ -2,31 +2,23 @@ package name.amadoucisse.restoo
 package domain
 package items
 
-import cats._
-import cats.implicits._
-import cats.data.EitherT
+import cats.Monad
+import cats.syntax.functor._
+import cats.syntax.applicative._
+import cats.syntax.either._
 
 final class ItemValidationInterpreter[F[_]: Monad](itemRepo: ItemRepositoryAlgebra[F])
     extends ItemValidationAlgebra[F] {
-  def doesNotExist(item: Item): EitherT[F, ItemAlreadyExistsError, Unit] = EitherT {
+  def doesNotExist(item: Item): F[ItemAlreadyExistsError Either Unit] =
     itemRepo.findByName(item.name).map {
-      case None => Right(())
-      case Some(_) => Left(ItemAlreadyExistsError(item))
+      case Left(_) => Right(())
+      case Right(_) => Left(ItemAlreadyExistsError(item))
     }
-  }
 
-  def exists(itemId: Option[ItemId]): EitherT[F, ItemNotFoundError.type, Unit] =
-    EitherT {
-      itemId
-        .map { id =>
-          itemRepo.get(id).map {
-            case Some(_) => Right(())
-            case _ => Left(ItemNotFoundError)
-          }
-        }
-        .getOrElse(
-          Either.left[ItemNotFoundError.type, Unit](ItemNotFoundError).pure[F]
-        )
+  def exists(itemId: Option[ItemId]): F[ItemNotFoundError.type Either Item] =
+    itemId match {
+      case Some(id) => itemRepo.get(id)
+      case None => Either.left[ItemNotFoundError.type, Item](ItemNotFoundError).pure[F]
     }
 
 }

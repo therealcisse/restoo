@@ -7,6 +7,7 @@ import java.util.Random
 import cats._
 import cats.implicits._
 
+import domain.ItemNotFoundError
 import domain.items._
 
 import scala.collection.concurrent.TrieMap
@@ -23,17 +24,23 @@ final class ItemRepositoryInMemoryInterpreter[F[_]: Applicative] extends ItemRep
     toSave.pure[F]
   }
 
-  def update(item: Item): F[Option[Item]] = item.id.traverse { id =>
-    cache.update(id, item)
-    item.pure[F]
-  }
+  def update(item: Item): F[ItemNotFoundError.type Either Item] =
+    Either
+      .fromOption(item.id, ItemNotFoundError)
+      .map { id =>
+        cache.update(id, item)
+        item
+      }
+      .pure[F]
 
-  def get(id: ItemId): F[Option[Item]] = cache.get(id).pure[F]
+  def get(id: ItemId): F[ItemNotFoundError.type Either Item] =
+    Either.fromOption(cache.get(id), ItemNotFoundError).pure[F]
 
-  def findByName(name: Name): F[Option[Item]] = cache.values.find(u => u.name == name).pure[F]
+  def findByName(name: Name): F[ItemNotFoundError.type Either Item] =
+    Either.fromOption(cache.values.find(u => u.name == name), ItemNotFoundError).pure[F]
 
-  def delete(itemId: ItemId): F[Option[Item]] =
-    cache.remove(itemId).pure[F]
+  def delete(itemId: ItemId): F[ItemNotFoundError.type Either Unit] =
+    Either.fromOption(cache.remove(itemId), ItemNotFoundError).map(_ => ()).pure[F]
 
   def list(): fs2.Stream[F, Item] = fs2.Stream.emits(cache.values.toVector.sortBy(_.name.value))
 }
