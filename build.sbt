@@ -1,6 +1,7 @@
+import ReleaseTransformations._
+
 organization    := "name.amadoucisse"
 name            := "restoo"
-version         := "0.2.0-SNAPSHOT"
 scalaVersion    := "2.12.6"
 
 val CatsVersion       = "1.1.0"
@@ -66,3 +67,17 @@ maxErrors := 5
 triggeredMessage := Watched.clearWhenTriggered
 
 scalafmtOnCompile := true
+
+skip in publish := true
+
+releaseProcess := Seq[ReleaseStep](
+  inquireVersions,
+  setReleaseVersion,
+  commitReleaseVersion,
+  tagRelease,
+  releaseStepCommandAndRemaining("publish"),
+  setNextVersion,
+  commitNextVersion,
+  pushChanges
+)
+

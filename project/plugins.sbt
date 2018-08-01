@@ -13,3 +13,5 @@ addSbtPlugin("org.flywaydb" % "flyway-sbt" % "4.2.0")
 resolvers += "Flyway".at("https://davidmweber.github.io/flyway-sbt.repo")
 // Native Packager allows us to create standalone jar
 addSbtPlugin("com.typesafe.sbt" % "sbt-native-packager" % "1.3.4")
+
+addSbtPlugin("com.github.gseitz" % "sbt-release" % "1.0.9")
