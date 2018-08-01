@@ -56,7 +56,7 @@ class ServerStream[F[_]: Effect] extends StreamApp[F] {
       exitCode <- BlazeBuilder[F]
         .bindHttp(conf.server.port, conf.server.address)
         .mountService(Index.endpoints)
-        .mountService(service, "/api/v1/items")
+        .mountService(service, s"/api/${ItemEndpoints.ApiVersion}/items")
         .mountService(prometheusExportService.service)
         .mountService(
           webjarService(WebjarService.Config(cacheStrategy = MemoryCache[F])),

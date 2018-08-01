@@ -150,6 +150,8 @@ final class ItemEndpoints[F[_]: Effect] extends Http4sDsl[F] {
 }
 
 object ItemEndpoints {
+  val ApiVersion = "v1"
+
   def endpoints[F[_]: Effect](
       itemService: ItemService[F],
       stockService: StockService[F],
@@ -186,7 +188,7 @@ object ItemEndpoints {
       "description" -> Json.fromString("REST API for managing restaurant stock.")
     ),
     "host" -> Json.fromString(swaggerConf.host),
-    "basePath" -> Json.fromString("/api/v1/items"),
+    "basePath" -> Json.fromString(s"/api/${ApiVersion}/items"),
     "schemes" -> Json.arr(swaggerConf.schemes.map(Json.fromString): _*),
     "paths" -> Json.obj(
       "" -> Json.obj(

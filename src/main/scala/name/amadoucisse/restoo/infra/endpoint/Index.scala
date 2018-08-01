@@ -17,7 +17,8 @@ class Index[F[_]: Effect] extends Http4sDsl[F] {
     override def encode(value: Uri) =
       QueryParameterValue(value.toString)
   }
-  val itemsSwaggerPath: Uri = uri("/api/v1/items/swagger-spec.json")
+  val itemsSwaggerPath: Uri =
+    Uri.unsafeFromString(s"/api/${ItemEndpoints.ApiVersion}/items/swagger-spec.json")
 
   val service: HttpService[F] = HttpService[F] {
     case GET -> Root =>
