@@ -48,13 +48,13 @@ final class ItemEndpoints[F[_]: Effect] extends Http4sDsl[F] {
 
   private def updateEndpoint(itemService: ItemService[F]): HttpService[F] =
     HttpService[F] {
-      case req @ (PUT | PATCH) -> Root / IntVar(id) =>
+      case req @ (PUT | PATCH) -> Root / ItemId(id) =>
         val action = for {
           itemRequest <- EitherT.right[AppError](req.as[ItemRequest])
 
           item <- EitherT.fromEither[F](itemRequest.validate)
 
-          updated = item.copy(id = ItemId(id).some)
+          updated = item.copy(id = id.some)
           result <- EitherT(itemService.update(updated).map(_.leftWiden[AppError]))
 
         } yield result
@@ -87,8 +87,8 @@ final class ItemEndpoints[F[_]: Effect] extends Http4sDsl[F] {
 
   private def getItemEndpoint(itemService: ItemService[F]): HttpService[F] =
     HttpService[F] {
-      case GET -> Root / IntVar(id) =>
-        val action = itemService.getItem(ItemId(id))
+      case GET -> Root / ItemId(id) =>
+        val action = itemService.getItem(id)
 
         action.flatMap {
           case Right(item) => Ok(item.asJson)
@@ -98,10 +98,10 @@ final class ItemEndpoints[F[_]: Effect] extends Http4sDsl[F] {
 
   private def createStockEntryEndpoint(stockService: StockService[F]): HttpService[F] =
     HttpService[F] {
-      case req @ (PUT | PATCH) -> Root / IntVar(itemId) / "stocks" =>
+      case req @ (PUT | PATCH) -> Root / ItemId(itemId) / "stocks" =>
         val action = for {
           stockRequest <- req.as[StockRequest]
-          result <- stockService.createEntry(ItemId(itemId), Delta(stockRequest.delta)).value
+          result <- stockService.createEntry(itemId, Delta(stockRequest.delta)).value
         } yield result
 
         action.flatMap {
@@ -117,8 +117,8 @@ final class ItemEndpoints[F[_]: Effect] extends Http4sDsl[F] {
 
   private def getStockEndpoint(stockService: StockService[F]): HttpService[F] =
     HttpService[F] {
-      case GET -> Root / IntVar(itemId) / "stocks" =>
-        val action = stockService.getStock(ItemId(itemId))
+      case GET -> Root / ItemId(itemId) / "stocks" =>
+        val action = stockService.getStock(itemId)
 
         action.flatMap {
           case Right(stock) => Ok(stock.asJson)
@@ -188,7 +188,7 @@ object ItemEndpoints {
       "description" -> Json.fromString("REST API for managing restaurant stock.")
     ),
     "host" -> Json.fromString(swaggerConf.host),
-    "basePath" -> Json.fromString(s"/api/${ApiVersion}/items"),
+    "basePath" -> Json.fromString(s"/api/$ApiVersion/items"),
     "schemes" -> Json.arr(swaggerConf.schemes.map(Json.fromString): _*),
     "paths" -> Json.obj(
       "" -> Json.obj(
@@ -251,7 +251,7 @@ object ItemEndpoints {
           ))
         ),
       ),
-      "/{ItemId}" -> Json.obj(
+      "/{itemId}" -> Json.obj(
         "get" -> Json.obj(
           "summary" -> Json.fromString("Get single item"),
           "description" -> Json.fromString(""),
@@ -392,7 +392,7 @@ object ItemEndpoints {
             ))
         ),
       ),
-      "/{ItemId}/stocks" -> Json.obj(
+      "/{itemId}/stocks" -> Json.obj(
         "get" -> Json.obj(
           "summary" -> Json.fromString("Get item stock"),
           "description" -> Json.fromString(""),

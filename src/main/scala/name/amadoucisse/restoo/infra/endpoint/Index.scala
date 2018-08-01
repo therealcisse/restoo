@@ -11,12 +11,9 @@ import org.http4s.headers.Location
 @SuppressWarnings(Array("org.wartremover.warts.Throw"))
 class Index[F[_]: Effect] extends Http4sDsl[F] {
 
-  implicit val uriQueryParamEncode: QueryParamEncoder[Uri] {
-    def encode(value: Uri): QueryParameterValue
-  } = new QueryParamEncoder[Uri] {
-    override def encode(value: Uri) =
-      QueryParameterValue(value.toString)
-  }
+  implicit val uriQueryParamEncode: QueryParamEncoder[Uri] =
+    QueryParamEncoder[String].contramap(_.renderString)
+
   val itemsSwaggerPath: Uri =
     Uri.unsafeFromString(s"/api/${ItemEndpoints.ApiVersion}/items/swagger-spec.json")
 
