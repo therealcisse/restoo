@@ -2,6 +2,7 @@
 *.log
 
 .metals
+.metaserver
 
 .DS_Store
 

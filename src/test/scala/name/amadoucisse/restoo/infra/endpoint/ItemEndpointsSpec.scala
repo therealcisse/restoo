@@ -7,16 +7,13 @@ import domain.items._
 import domain.entries._
 import service.{ItemService, StockService}
 import repository.inmemory.{EntryRepositoryInMemoryInterpreter, ItemRepositoryInMemoryInterpreter}
-
 import cats.effect._
-
 import io.circe.generic.auto._
 import io.circe.syntax._
-
+import http.HttpErrorHandler
 import org.http4s._
 import org.http4s.dsl._
 import org.http4s.circe._
-
 import org.scalatest._
 import org.scalatest.prop.PropertyChecks
 
@@ -27,6 +24,8 @@ class ItemEndpointsSpec
     with PropertyChecks
     with Arbitraries
     with Http4sDsl[IO] {
+
+  implicit val httpErrorHandler: HttpErrorHandler[IO] = new HttpErrorHandler[IO]
 
   test("add item") {
 

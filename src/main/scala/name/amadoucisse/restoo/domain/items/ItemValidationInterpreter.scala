@@ -5,20 +5,20 @@ package items
 import cats.Monad
 import cats.syntax.functor._
 import cats.syntax.applicative._
-import cats.syntax.either._
+import cats.syntax.option._
 
 final class ItemValidationInterpreter[F[_]: Monad](itemRepo: ItemRepositoryAlgebra[F])
     extends ItemValidationAlgebra[F] {
-  def doesNotExist(item: Item): F[ItemAlreadyExistsError Either Unit] =
+  def doesNotExist(item: Item): F[AppError Either Unit] =
     itemRepo.findByName(item.name).map {
-      case Left(_) => Right(())
-      case Right(_) => Left(ItemAlreadyExistsError(item))
+      case None => Right(())
+      case Some(_) => Left(ItemAlreadyExistsError(item))
     }
 
-  def exists(itemId: Option[ItemId]): F[ItemNotFoundError.type Either Item] =
+  def exists(itemId: Option[ItemId]): F[Option[Item]] =
     itemId match {
       case Some(id) => itemRepo.get(id)
-      case None => Either.left[ItemNotFoundError.type, Item](ItemNotFoundError).pure[F]
+      case None => none[Item].pure[F]
     }
 
 }

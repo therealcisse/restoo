@@ -3,9 +3,8 @@ package service
 
 import cats.Monad
 import cats.data.EitherT
-
-import domain.{AppError, ItemOutOfStockError, NoStockError, OccurredAt}
-import domain.items.{ItemId, ItemRepositoryAlgebra}
+import domain.{AppError, ItemNotFoundError, ItemOutOfStockError, NoStockError, OccurredAt}
+import domain.items.{Item, ItemId, ItemRepositoryAlgebra}
 import domain.entries.{Delta, Entry, EntryRepositoryAlgebra, Stock}
 
 final class StockService[F[_]: Monad](
@@ -44,12 +43,15 @@ final class StockService[F[_]: Monad](
   }
 
   def getStock(itemId: ItemId): F[AppError Either Stock] =
-    EitherT(itemRepo.get(itemId)).flatMap { item =>
-      EitherT
-        .fromOptionF(entryRepo.count(itemId), NoStockError(item): AppError)
-        .subflatMap(quantity => Right(Stock(item, quantity)))
+    EitherT
+      .fromOptionF[F, AppError, Item](itemRepo.get(itemId), ItemNotFoundError)
+      .flatMap { item =>
+        EitherT
+          .fromOptionF[F, AppError, Long](entryRepo.count(itemId), NoStockError(item))
+          .subflatMap(quantity => Right(Stock(item, quantity)))
 
-    }.value
+      }
+      .value
 
 }
 

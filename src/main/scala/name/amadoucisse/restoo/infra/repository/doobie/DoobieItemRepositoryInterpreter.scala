@@ -3,15 +3,12 @@ package infra
 package repository.doobie
 
 import cats.Monad
-import cats.data.EitherT
+import cats.data.OptionT
 import cats.implicits._
-
 import doobie._
 import doobie.implicits._
-
 import domain.OccurredAt
 import domain.items._
-import domain.ItemNotFoundError
 
 private object ItemSQL extends SQLCommon {
 
@@ -80,9 +77,9 @@ final class DoobieItemRepositoryInterpreter[F[_]: Monad](val xa: Transactor[F])
       .map(id => item.copy(id = ItemId(id).some))
       .transact(xa)
 
-  def update(item: Item): F[ItemNotFoundError.type Either Item] =
-    EitherT
-      .fromOption[F](item.id, ItemNotFoundError)
+  def update(item: Item): F[Option[Item]] =
+    OptionT
+      .fromOption[F](item.id)
       .flatMapF { id =>
         val newItem = item.copy(updatedAt = OccurredAt.now)
         ItemSQL
@@ -92,17 +89,14 @@ final class DoobieItemRepositoryInterpreter[F[_]: Monad](val xa: Transactor[F])
       }
       .value
 
-  def get(id: ItemId): F[ItemNotFoundError.type Either Item] =
-    EitherT.fromOptionF(ItemSQL.select(id).option.transact(xa), ItemNotFoundError).value
+  def get(id: ItemId): F[Option[Item]] =
+    ItemSQL.select(id).option.transact(xa)
 
-  def findByName(name: Name): F[ItemNotFoundError.type Either Item] =
-    EitherT.fromOptionF(ItemSQL.byName(name).option.transact(xa), ItemNotFoundError).value
+  def findByName(name: Name): F[Option[Item]] =
+    ItemSQL.byName(name).option.transact(xa)
 
-  def delete(itemId: ItemId): F[ItemNotFoundError.type Either Unit] =
-    ItemSQL.delete(itemId).run.transact(xa).map { affectedRows =>
-      if (affectedRows == 1) Right(())
-      else Left(ItemNotFoundError)
-    }
+  def delete(itemId: ItemId): F[Unit] =
+    ItemSQL.delete(itemId).run.transact(xa).as(())
 
   def list(): fs2.Stream[F, Item] = ItemSQL.selectAll.stream.transact(xa)
 }

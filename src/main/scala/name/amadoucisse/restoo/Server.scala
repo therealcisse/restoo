@@ -2,29 +2,26 @@ package name.amadoucisse.restoo
 
 import cats.effect.{Effect, IO}
 import cats.implicits._
-
 import fs2.{Stream, StreamApp}
-
 import io.prometheus.client.CollectorRegistry
-
 import config.{AppConf, DatabaseConfig}
 import domain.items.ItemValidationInterpreter
 import infra.endpoint.{Index, ItemEndpoints}
 import infra.repository.doobie.{DoobieEntryRepositoryInterpreter, DoobieItemRepositoryInterpreter}
 import service.{ItemService, StockService}
-
 import org.http4s.server.staticcontent.{MemoryCache, WebjarService, webjarService}
 import org.http4s.server.blaze.BlazeBuilder
 import org.http4s.server.prometheus.{PrometheusExportService, PrometheusMetrics}
-
 import io.opencensus.scala.http4s.TracingMiddleware
 import io.opencensus.scala.http.ServiceData
+import name.amadoucisse.restoo.http.HttpErrorHandler
 
 import scala.concurrent.ExecutionContext.Implicits.global
 
 object Server extends ServerStream[IO]
 
 class ServerStream[F[_]: Effect] extends StreamApp[F] {
+  implicit val httpErrorHandler: HttpErrorHandler[F] = new HttpErrorHandler[F]
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   final def stream(args: List[String], requestShutdown: F[Unit]): Stream[F, StreamApp.ExitCode] =

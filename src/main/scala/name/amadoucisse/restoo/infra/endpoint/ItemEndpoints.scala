@@ -15,13 +15,15 @@ import org.http4s.{EntityDecoder, HttpService}
 import domain._
 import domain.items._
 import domain.entries._
-import name.amadoucisse.restoo.config.SwaggerConf
+import config.SwaggerConf
+import http.HttpErrorHandler
 import service.{ItemService, StockService}
 
-final class ItemEndpoints[F[_]: Effect] extends Http4sDsl[F] {
+final class ItemEndpoints[F[_]: Effect](implicit httpErrorHandler: HttpErrorHandler[F])
+    extends Http4sDsl[F] {
   import ItemEndpoints._
 
-  implicit val createItemRequestDecoder: EntityDecoder[F, ItemRequest] = jsonOf
+  implicit val itemRequestDecoder: EntityDecoder[F, ItemRequest] = jsonOf
 
   implicit val stockRequestDecoder: EntityDecoder[F, StockRequest] = jsonOf
 
@@ -33,17 +35,14 @@ final class ItemEndpoints[F[_]: Effect] extends Http4sDsl[F] {
 
           item <- EitherT.fromEither[F](itemRequest.validate)
 
-          result <- EitherT(itemService.createItem(item).map(_.leftWiden[AppError]))
+          result <- EitherT(itemService.createItem(item))
+
         } yield result
 
-        action.value.flatMap {
-          case Right(saved) => Ok(saved.asJson)
-          case Left(ErrorListing(errors)) => UnprocessableEntity(errors.asJson)
-          case Left(ItemAlreadyExistsError(existing)) =>
-            Conflict(s"The item with item name `${existing.name.value}` already exists")
-          case _ => BadRequest()
-        }
-
+        for {
+          item <- action.value
+          resp <- item.fold(httpErrorHandler.handle, item => Ok(item.asJson))
+        } yield resp
     }
 
   private def updateEndpoint(itemService: ItemService[F]): HttpService[F] =
@@ -55,17 +54,14 @@ final class ItemEndpoints[F[_]: Effect] extends Http4sDsl[F] {
           item <- EitherT.fromEither[F](itemRequest.validate)
 
           updated = item.copy(id = id.some)
-          result <- EitherT(itemService.update(updated).map(_.leftWiden[AppError]))
+          result <- EitherT(itemService.update(updated))
 
         } yield result
 
-        action.value.flatMap {
-          case Right(saved) => Ok(saved.asJson)
-          case Left(ErrorListing(errors)) => UnprocessableEntity(errors.asJson)
-          case Left(ItemNotFoundError) => NotFound("Item not found")
-          case _ => BadRequest()
-        }
-
+        for {
+          item <- action.value
+          resp <- item.fold(httpErrorHandler.handle, item => Ok(item.asJson))
+        } yield resp
     }
 
   private def listEndpoint(itemService: ItemService[F]): HttpService[F] =
@@ -78,9 +74,9 @@ final class ItemEndpoints[F[_]: Effect] extends Http4sDsl[F] {
 
   private def deleteItemEndpoint(itemService: ItemService[F]): HttpService[F] =
     HttpService[F] {
-      case DELETE -> Root / IntVar(id) =>
+      case DELETE -> Root / ItemId(id) =>
         for {
-          _ <- itemService.deleteItem(ItemId(id))
+          _ <- itemService.deleteItem(id)
           resp <- Ok()
         } yield resp
     }
@@ -88,44 +84,30 @@ final class ItemEndpoints[F[_]: Effect] extends Http4sDsl[F] {
   private def getItemEndpoint(itemService: ItemService[F]): HttpService[F] =
     HttpService[F] {
       case GET -> Root / ItemId(id) =>
-        val action = itemService.getItem(id)
-
-        action.flatMap {
-          case Right(item) => Ok(item.asJson)
-          case Left(ItemNotFoundError) => NotFound("Item not found")
-        }
+        for {
+          item <- itemService.getItem(id)
+          resp <- item.fold(httpErrorHandler.handle, item => Ok(item.asJson))
+        } yield resp
     }
 
   private def createStockEntryEndpoint(stockService: StockService[F]): HttpService[F] =
     HttpService[F] {
       case req @ (PUT | PATCH) -> Root / ItemId(itemId) / "stocks" =>
-        val action = for {
+        for {
           stockRequest <- req.as[StockRequest]
-          result <- stockService.createEntry(itemId, Delta(stockRequest.delta)).value
-        } yield result
-
-        action.flatMap {
-          case Right(saved) => Ok(saved.asJson)
-          case Left(ItemNotFoundError) => NotFound("Item not found")
-          case Left(NoStockError(item)) => Ok(Stock(item, 0).asJson)
-          case Left(ItemOutOfStockError) =>
-            Conflict("Item out of stock")
-          case _ => InternalServerError()
-        }
+          entry <- stockService.createEntry(itemId, Delta(stockRequest.delta)).value
+          resp <- entry.fold(httpErrorHandler.handle, entry => Ok(entry.asJson))
+        } yield resp
 
     }
 
   private def getStockEndpoint(stockService: StockService[F]): HttpService[F] =
     HttpService[F] {
       case GET -> Root / ItemId(itemId) / "stocks" =>
-        val action = stockService.getStock(itemId)
-
-        action.flatMap {
-          case Right(stock) => Ok(stock.asJson)
-          case Left(ItemNotFoundError) => NotFound("Item not found")
-          case Left(NoStockError(item)) => Ok(Stock(item, 0).asJson)
-          case _ => InternalServerError()
-        }
+        for {
+          stock <- stockService.getStock(itemId)
+          resp <- stock.fold(httpErrorHandler.handle, stock => Ok(stock.asJson))
+        } yield resp
     }
 
   private def getSwaggerDocs(swaggerConf: SwaggerConf): HttpService[F] =
@@ -156,13 +138,13 @@ object ItemEndpoints {
       itemService: ItemService[F],
       stockService: StockService[F],
       swaggerConf: SwaggerConf,
-  ): HttpService[F] =
+  )(implicit httpErrorHandler: HttpErrorHandler[F]): HttpService[F] =
     new ItemEndpoints[F].endpoints(itemService, stockService, swaggerConf)
 
   final case class ItemRequest(name: String, price: Double, category: String) {
     import utils.Validator._
 
-    def validate: Either[ErrorListing, Item] = {
+    def validate: Either[AppError, Item] = {
       val item = (
         validateNonEmpty(name, FieldError("item.name", "error.empty")),
         validateNonNegative(price, FieldError("item.price", "error.negative")),
@@ -181,7 +163,7 @@ object ItemEndpoints {
 
   final case class StockRequest(delta: Int) extends AnyVal
 
-  // TODO: Use Rho to do this once it's stable enough
+  // TODO: Use Rho
   private def swagger(swaggerConf: SwaggerConf): Json = Json.obj(
     "swagger" -> Json.fromString("2.0"),
     "info" -> Json.obj(
@@ -260,7 +242,7 @@ object ItemEndpoints {
           "produces" -> Json.arr(Json.fromString("application/json")),
           "parameters" -> Json.arr(Json.obj(
             "in" -> Json.fromString("path"),
-            "name" -> Json.fromString("ItemId"),
+            "name" -> Json.fromString("itemId"),
             "description" -> Json.fromString("Id of the item."),
             "type" -> Json.fromString("integer"),
             "format" -> Json.fromString("int32"),
@@ -285,7 +267,7 @@ object ItemEndpoints {
           "parameters" -> Json.arr(
             Json.obj(
               "in" -> Json.fromString("path"),
-              "name" -> Json.fromString("ItemId"),
+              "name" -> Json.fromString("itemId"),
               "description" -> Json.fromString("Id of the item."),
               "type" -> Json.fromString("integer"),
               "format" -> Json.fromString("int32"),
@@ -333,7 +315,7 @@ object ItemEndpoints {
           "parameters" -> Json.arr(
             Json.obj(
               "in" -> Json.fromString("path"),
-              "name" -> Json.fromString("ItemId"),
+              "name" -> Json.fromString("itemId"),
               "description" -> Json.fromString("Id of the item."),
               "type" -> Json.fromString("integer"),
               "format" -> Json.fromString("int32"),
@@ -380,7 +362,7 @@ object ItemEndpoints {
           "produces" -> Json.arr(Json.fromString("application/json")),
           "parameters" -> Json.arr(Json.obj(
             "in" -> Json.fromString("path"),
-            "name" -> Json.fromString("ItemId"),
+            "name" -> Json.fromString("itemId"),
             "description" -> Json.fromString("Id of the item."),
             "type" -> Json.fromString("integer"),
             "format" -> Json.fromString("int64"),
@@ -401,7 +383,7 @@ object ItemEndpoints {
           "produces" -> Json.arr(Json.fromString("application/json")),
           "parameters" -> Json.arr(Json.obj(
             "in" -> Json.fromString("path"),
-            "name" -> Json.fromString("ItemId"),
+            "name" -> Json.fromString("itemId"),
             "description" -> Json.fromString("Id of the item."),
             "type" -> Json.fromString("integer"),
             "required" -> Json.fromBoolean(true),
@@ -425,7 +407,7 @@ object ItemEndpoints {
           "parameters" -> Json.arr(
             Json.obj(
               "in" -> Json.fromString("path"),
-              "name" -> Json.fromString("ItemId"),
+              "name" -> Json.fromString("itemId"),
               "description" -> Json.fromString("Id of the item."),
               "type" -> Json.fromString("integer"),
               "format" -> Json.fromString("int32"),
@@ -463,7 +445,7 @@ object ItemEndpoints {
           "parameters" -> Json.arr(
             Json.obj(
               "in" -> Json.fromString("path"),
-              "name" -> Json.fromString("ItemId"),
+              "name" -> Json.fromString("itemId"),
               "description" -> Json.fromString("Id of the item."),
               "type" -> Json.fromString("integer"),
               "format" -> Json.fromString("int32"),
