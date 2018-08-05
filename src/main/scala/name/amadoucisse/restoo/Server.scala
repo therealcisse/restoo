@@ -4,7 +4,7 @@ import cats.effect.{Effect, IO}
 import cats.implicits._
 import fs2.{Stream, StreamApp}
 import io.prometheus.client.CollectorRegistry
-import config.{AppConf, DatabaseConfig}
+import config.{AppConf, DatabaseConf}
 import domain.items.ItemValidationInterpreter
 import infra.endpoint.{Index, ItemEndpoints}
 import infra.repository.doobie.{DoobieEntryRepositoryInterpreter, DoobieItemRepositoryInterpreter}
@@ -14,7 +14,7 @@ import org.http4s.server.blaze.BlazeBuilder
 import org.http4s.server.prometheus.{PrometheusExportService, PrometheusMetrics}
 import io.opencensus.scala.http4s.TracingMiddleware
 import io.opencensus.scala.http.ServiceData
-import name.amadoucisse.restoo.http.HttpErrorHandler
+import http.HttpErrorHandler
 
 import scala.concurrent.ExecutionContext.Implicits.global
 
@@ -27,8 +27,8 @@ class ServerStream[F[_]: Effect] extends StreamApp[F] {
   final def stream(args: List[String], requestShutdown: F[Unit]): Stream[F, StreamApp.ExitCode] =
     for {
       conf <- Stream.eval(AppConf.load[F])
-      xa <- Stream.eval(DatabaseConfig.dbTransactor(conf.db))
-      _ <- Stream.eval(DatabaseConfig.initializeDb(conf.db, xa))
+      xa <- Stream.eval(DatabaseConf.dbTransactor(conf.db))
+      _ <- Stream.eval(DatabaseConf.initializeDb(xa))
 
       itemRepo = DoobieItemRepositoryInterpreter(xa)
       entryRepo = DoobieEntryRepositoryInterpreter(xa)

@@ -47,7 +47,7 @@ final class ItemEndpoints[F[_]: Effect](implicit httpErrorHandler: HttpErrorHand
 
   private def updateEndpoint(itemService: ItemService[F]): HttpService[F] =
     HttpService[F] {
-      case req @ (PUT | PATCH) -> Root / ItemId(id) =>
+      case req @ PUT -> Root / ItemId(id) =>
         val action = for {
           itemRequest <- EitherT.right[AppError](req.as[ItemRequest])
 
@@ -92,7 +92,7 @@ final class ItemEndpoints[F[_]: Effect](implicit httpErrorHandler: HttpErrorHand
 
   private def createStockEntryEndpoint(stockService: StockService[F]): HttpService[F] =
     HttpService[F] {
-      case req @ (PUT | PATCH) -> Root / ItemId(itemId) / "stocks" =>
+      case req @ PUT -> Root / ItemId(itemId) / "stocks" =>
         for {
           stockRequest <- req.as[StockRequest]
           entry <- stockService.createEntry(itemId, Delta(stockRequest.delta)).value
@@ -110,10 +110,10 @@ final class ItemEndpoints[F[_]: Effect](implicit httpErrorHandler: HttpErrorHand
         } yield resp
     }
 
-  private def getSwaggerDocs(swaggerConf: SwaggerConf): HttpService[F] =
+  private def getSwaggerSpec(swaggerConf: SwaggerConf): HttpService[F] =
     HttpService[F] {
       case GET -> Root / "swagger-spec.json" =>
-        Ok(ItemEndpoints.swagger(swaggerConf))
+        Ok(ItemEndpoints.swaggerSpec(swaggerConf))
     }
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
@@ -128,7 +128,7 @@ final class ItemEndpoints[F[_]: Effect](implicit httpErrorHandler: HttpErrorHand
       listEndpoint(itemService) <+>
       createStockEntryEndpoint(stockService) <+>
       getStockEndpoint(stockService) <+>
-      getSwaggerDocs(swaggerConf)
+      getSwaggerSpec(swaggerConf)
 }
 
 object ItemEndpoints {
@@ -164,7 +164,7 @@ object ItemEndpoints {
   final case class StockRequest(delta: Int) extends AnyVal
 
   // TODO: Use Rho
-  private def swagger(swaggerConf: SwaggerConf): Json = Json.obj(
+  private def swaggerSpec(swaggerConf: SwaggerConf): Json = Json.obj(
     "swagger" -> Json.fromString("2.0"),
     "info" -> Json.obj(
       "description" -> Json.fromString("REST API for managing restaurant stock.")
@@ -206,31 +206,26 @@ object ItemEndpoints {
               "$ref" -> Json.fromString("#/definitions/ItemRequest")
             )
           )),
-          "responses" -> Json.obj("200" -> Json.obj(
-            "description" -> Json.fromString("Success"),
-            "schema" -> Json.obj(
-              "$ref" -> Json.fromString("#/definitions/Item")
+          "responses" -> Json.obj(
+            "200" -> Json.obj(
+              "description" -> Json.fromString("Success"),
+              "schema" -> Json.obj(
+                "$ref" -> Json.fromString("#/definitions/Item")
+              ),
             ),
             "409" -> Json.obj(
-              "description" -> Json.fromString("Item name already exists"),
+              "description" -> Json.fromString("Item already exists"),
+              "schema" -> Json.obj(
+                "$ref" -> Json.fromString("#/definitions/ApiResponseWrapper")
+              ),
             ),
             "422" -> Json.obj(
               "description" -> Json.fromString("Validation error"),
               "schema" -> Json.obj(
-                "oneOf" -> Json.arr(
-                  Json.obj(
-                    "type" -> Json.fromString("array"),
-                    "items" -> Json.obj(
-                      "$ref" -> Json.fromString("#/definitions/FieldError")
-                    )
-                  ),
-                  Json.obj(
-                    "type" -> Json.fromString("string"),
-                  )
-                )
+                "$ref" -> Json.fromString("#/definitions/FieldErrors"),
               ),
-            )
-          ))
+            ),
+          )
         ),
       ),
       "/{itemId}" -> Json.obj(
@@ -248,63 +243,20 @@ object ItemEndpoints {
             "format" -> Json.fromString("int32"),
             "required" -> Json.fromBoolean(true),
           )),
-          "responses" -> Json.obj("200" -> Json.obj(
-            "description" -> Json.fromString("Success"),
-            "schema" -> Json.obj(
-              "$ref" -> Json.fromString("#/definitions/Item")
+          "responses" -> Json.obj(
+            "200" -> Json.obj(
+              "description" -> Json.fromString("Success"),
+              "schema" -> Json.obj(
+                "$ref" -> Json.fromString("#/definitions/Item")
+              ),
             ),
             "404" -> Json.obj(
-              "description" -> Json.fromString("Not found"),
-            ),
-          ))
-        ),
-        "patch" -> Json.obj(
-          "summary" -> Json.fromString("Update an item"),
-          "description" -> Json.fromString(""),
-          "operationId" -> Json.fromString("updateItem"),
-          "consumes" -> Json.arr(Json.fromString("application/json")),
-          "produces" -> Json.arr(Json.fromString("application/json")),
-          "parameters" -> Json.arr(
-            Json.obj(
-              "in" -> Json.fromString("path"),
-              "name" -> Json.fromString("itemId"),
-              "description" -> Json.fromString("Id of the item."),
-              "type" -> Json.fromString("integer"),
-              "format" -> Json.fromString("int32"),
-              "required" -> Json.fromBoolean(true),
-            ),
-            Json.obj(
-              "in" -> Json.fromString("body"),
-              "name" -> Json.fromString("body"),
-              "description" -> Json.fromString("Item object"),
-              "required" -> Json.fromBoolean(true),
+              "description" -> Json.fromString("Item not found"),
               "schema" -> Json.obj(
-                "$ref" -> Json.fromString("#/definitions/ItemRequest")
-              )
-            )
-          ),
-          "responses" -> Json.obj("200" -> Json.obj(
-            "description" -> Json.fromString("Success"),
-            "schema" -> Json.obj(
-              "$ref" -> Json.fromString("#/definitions/Item")
-            ),
-            "422" -> Json.obj(
-              "description" -> Json.fromString("Validation error"),
-              "schema" -> Json.obj(
-                "oneOf" -> Json.arr(
-                  Json.obj(
-                    "type" -> Json.fromString("array"),
-                    "items" -> Json.obj(
-                      "$ref" -> Json.fromString("#/definitions/FieldError")
-                    )
-                  ),
-                  Json.obj(
-                    "type" -> Json.fromString("string"),
-                  )
-                )
+                "$ref" -> Json.fromString("#/definitions/ApiResponseWrapper")
               ),
-            )
-          )),
+            ),
+          )
         ),
         "put" -> Json.obj(
           "summary" -> Json.fromString("Update an item"),
@@ -331,28 +283,26 @@ object ItemEndpoints {
               )
             )
           ),
-          "responses" -> Json.obj("200" -> Json.obj(
-            "description" -> Json.fromString("Success"),
-            "schema" -> Json.obj(
-              "$ref" -> Json.fromString("#/definitions/Item")
+          "responses" -> Json.obj(
+            "200" -> Json.obj(
+              "description" -> Json.fromString("Success"),
+              "schema" -> Json.obj(
+                "$ref" -> Json.fromString("#/definitions/Item")
+              ),
+            ),
+            "404" -> Json.obj(
+              "description" -> Json.fromString("Item not found"),
+              "schema" -> Json.obj(
+                "$ref" -> Json.fromString("#/definitions/ApiResponseWrapper")
+              ),
             ),
             "422" -> Json.obj(
               "description" -> Json.fromString("Validation error"),
               "schema" -> Json.obj(
-                "oneOf" -> Json.arr(
-                  Json.obj(
-                    "type" -> Json.fromString("array"),
-                    "items" -> Json.obj(
-                      "$ref" -> Json.fromString("#/definitions/FieldError")
-                    )
-                  ),
-                  Json.obj(
-                    "type" -> Json.fromString("string"),
-                  )
-                )
+                "$ref" -> Json.fromString("#/definitions/FieldErrors"),
               ),
-            )
-          )),
+            ),
+          ),
         ),
         "delete" -> Json.obj(
           "summary" -> Json.fromString("Delete an item"),
@@ -388,15 +338,20 @@ object ItemEndpoints {
             "type" -> Json.fromString("integer"),
             "required" -> Json.fromBoolean(true),
           )),
-          "responses" -> Json.obj("200" -> Json.obj(
-            "description" -> Json.fromString("Success"),
-            "schema" -> Json.obj(
-              "$ref" -> Json.fromString("#/definitions/Stock")
+          "responses" -> Json.obj(
+            "200" -> Json.obj(
+              "description" -> Json.fromString("Success"),
+              "schema" -> Json.obj(
+                "$ref" -> Json.fromString("#/definitions/Stock")
+              ),
             ),
             "404" -> Json.obj(
-              "description" -> Json.fromString("Not found"),
+              "description" -> Json.fromString("Item not found"),
+              "schema" -> Json.obj(
+                "$ref" -> Json.fromString("#/definitions/ApiResponseWrapper")
+              ),
             ),
-          ))
+          )
         ),
         "put" -> Json.obj(
           "summary" -> Json.fromString("Update item stock"),
@@ -423,56 +378,26 @@ object ItemEndpoints {
               )
             )
           ),
-          "responses" -> Json.obj("200" -> Json.obj(
-            "description" -> Json.fromString("Success"),
-            "schema" -> Json.obj(
-              "$ref" -> Json.fromString("#/definitions/Stock")
-            ),
-            "422" -> Json.obj(
-              "description" -> Json.fromString("Invalid request entity"),
-            ),
-            "409" -> Json.obj(
-              "description" -> Json.fromString("Item out of stock"),
-            ),
-          )),
-        ),
-        "patch" -> Json.obj(
-          "summary" -> Json.fromString("Update item stock"),
-          "description" -> Json.fromString(""),
-          "operationId" -> Json.fromString("updateItemStock"),
-          "consumes" -> Json.arr(Json.fromString("application/json")),
-          "produces" -> Json.arr(Json.fromString("application/json")),
-          "parameters" -> Json.arr(
-            Json.obj(
-              "in" -> Json.fromString("path"),
-              "name" -> Json.fromString("itemId"),
-              "description" -> Json.fromString("Id of the item."),
-              "type" -> Json.fromString("integer"),
-              "format" -> Json.fromString("int32"),
-              "required" -> Json.fromBoolean(true),
-            ),
-            Json.obj(
-              "in" -> Json.fromString("body"),
-              "name" -> Json.fromString("body"),
-              "description" -> Json.fromString("Delta object"),
-              "required" -> Json.fromBoolean(true),
+          "responses" -> Json.obj(
+            "200" -> Json.obj(
+              "description" -> Json.fromString("Success"),
               "schema" -> Json.obj(
-                "$ref" -> Json.fromString("#/definitions/Delta")
-              )
-            )
-          ),
-          "responses" -> Json.obj("200" -> Json.obj(
-            "description" -> Json.fromString("Success"),
-            "schema" -> Json.obj(
-              "$ref" -> Json.fromString("#/definitions/Stock")
+                "$ref" -> Json.fromString("#/definitions/Stock")
+              ),
             ),
-            "422" -> Json.obj(
-              "description" -> Json.fromString("Invalid request entity"),
+            "404" -> Json.obj(
+              "description" -> Json.fromString("Item not found"),
+              "schema" -> Json.obj(
+                "$ref" -> Json.fromString("#/definitions/ApiResponseWrapper")
+              ),
             ),
             "409" -> Json.obj(
               "description" -> Json.fromString("Item out of stock"),
+              "schema" -> Json.obj(
+                "$ref" -> Json.fromString("#/definitions/ApiResponseWrapper")
+              ),
             ),
-          )),
+          )
         ),
       ),
     ),
@@ -526,17 +451,75 @@ object ItemEndpoints {
           ),
         )
       ),
+      "ApiResponseWrapper" -> Json.obj(
+        "type" -> Json.fromString("object"),
+        "required" -> Json.arr(
+          Json.fromString("error"),
+        ),
+        "properties" -> Json.obj(
+          "error" -> Json.obj(
+            "$ref" -> Json.fromString("#/definitions/ApiResponse")
+          ),
+        )
+      ),
       "FieldError" -> Json.obj(
         "type" -> Json.fromString("object"),
         "required" -> Json.arr(
-          Json.fromString("name"),
+          Json.fromString("id"),
           Json.fromString("message"),
+          Json.fromString("type"),
         ),
         "properties" -> Json.obj(
-          "name" -> Json.obj(
+          "id" -> Json.obj(
             "type" -> Json.fromString("string"),
           ),
           "message" -> Json.obj(
+            "type" -> Json.fromString("string"),
+          ),
+          "type" -> Json.obj(
+            "type" -> Json.fromString("string"),
+          ),
+        )
+      ),
+      "FieldErrors" -> Json.obj(
+        "type" -> Json.fromString("object"),
+        "required" -> Json.arr(
+          Json.fromString("code"),
+          Json.fromString("message"),
+          Json.fromString("type"),
+          Json.fromString("errors"),
+        ),
+        "properties" -> Json.obj(
+          "code" -> Json.obj(
+            "type" -> Json.fromString("string"),
+          ),
+          "message" -> Json.obj(
+            "type" -> Json.fromString("string"),
+          ),
+          "type" -> Json.obj(
+            "type" -> Json.fromString("string"),
+          ),
+          "errors" -> Json.obj(
+            "type" -> Json.fromString("array"),
+            "items" -> Json.obj("$ref" -> Json.fromString("#/definitions/FieldError")),
+          ),
+        )
+      ),
+      "ApiResponse" -> Json.obj(
+        "type" -> Json.fromString("object"),
+        "required" -> Json.arr(
+          Json.fromString("code"),
+          Json.fromString("message"),
+          Json.fromString("type"),
+        ),
+        "properties" -> Json.obj(
+          "code" -> Json.obj(
+            "type" -> Json.fromString("string"),
+          ),
+          "message" -> Json.obj(
+            "type" -> Json.fromString("string"),
+          ),
+          "type" -> Json.obj(
             "type" -> Json.fromString("string"),
           ),
         )
@@ -584,4 +567,5 @@ object ItemEndpoints {
       ),
     )
   )
+
 }

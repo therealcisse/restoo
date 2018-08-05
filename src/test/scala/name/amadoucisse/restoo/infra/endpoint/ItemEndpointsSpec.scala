@@ -10,9 +10,10 @@ import repository.inmemory.{EntryRepositoryInMemoryInterpreter, ItemRepositoryIn
 import cats.effect._
 import io.circe.generic.auto._
 import io.circe.syntax._
-import http.HttpErrorHandler
+import io.circe.Json
+import http.{ApiResponseCodes, HttpErrorHandler}
+import utils.Validator
 import org.http4s._
-import org.http4s.dsl._
 import org.http4s.circe._
 import org.scalatest._
 import org.scalatest.prop.PropertyChecks
@@ -23,7 +24,7 @@ class ItemEndpointsSpec
     with Matchers
     with PropertyChecks
     with Arbitraries
-    with Http4sDsl[IO] {
+    with dsl.Http4sDsl[IO] {
 
   implicit val httpErrorHandler: HttpErrorHandler[IO] = new HttpErrorHandler[IO]
 
@@ -49,6 +50,89 @@ class ItemEndpointsSpec
         .getOrElse(fail(s"Request was not handled: $request"))
     } yield {
       response.status shouldEqual Ok
+    }).unsafeRunSync
+
+  }
+
+  test("disallow duplicate items") {
+
+    val itemRepo = ItemRepositoryInMemoryInterpreter[IO]
+    val itemValidation = ItemValidationInterpreter[IO](itemRepo)
+    val itemService = ItemService(itemRepo, itemValidation)
+
+    val entryRepo = EntryRepositoryInMemoryInterpreter[IO]
+    val stockService = StockService(entryRepo, itemRepo)
+
+    val swaggerConf = SwaggerConf("localhost", Nil)
+
+    val itemHttpService = ItemEndpoints.endpoints[IO](itemService, stockService, swaggerConf)
+
+    val item = ItemEndpoints.ItemRequest(name = "Item 0", price = 99.99, category = "Food & Drinks")
+
+    (for {
+      request <- Request[IO](Method.POST, Uri.uri("/")).withBody(item.asJson)
+      response <- itemHttpService
+        .run(request)
+        .getOrElse(fail(s"Request was not handled: $request"))
+
+    } yield {
+      response.status shouldEqual Ok
+    }).unsafeRunSync
+
+    // Try adding a duplicate
+    (for {
+      request <- Request[IO](Method.POST, Uri.uri("/")).withBody(item.asJson)
+      response <- itemHttpService
+        .run(request)
+        .getOrElse(fail(s"Request was not handled: $request"))
+
+    } yield {
+      response.status shouldEqual Conflict
+
+      val responseEntity = response.as[Json].unsafeRunSync().hcursor.downField("error")
+
+      responseEntity.get[String]("code") shouldEqual Right(ApiResponseCodes.CONFLICT)
+      responseEntity.get[String]("message") shouldEqual Right("Item already exists")
+      responseEntity.get[String]("type") shouldEqual Right("ItemAlreadyExists")
+
+    }).unsafeRunSync
+
+  }
+
+  test("disallow invalid items") {
+
+    val itemRepo = ItemRepositoryInMemoryInterpreter[IO]
+    val itemValidation = ItemValidationInterpreter[IO](itemRepo)
+    val itemService = ItemService(itemRepo, itemValidation)
+
+    val entryRepo = EntryRepositoryInMemoryInterpreter[IO]
+    val stockService = StockService(entryRepo, itemRepo)
+
+    val swaggerConf = SwaggerConf("localhost", Nil)
+
+    val itemHttpService = ItemEndpoints.endpoints[IO](itemService, stockService, swaggerConf)
+
+    val item = ItemEndpoints.ItemRequest(name = "", price = -99.99, category = "")
+
+    (for {
+      request <- Request[IO](Method.POST, Uri.uri("/")).withBody(item.asJson)
+      response <- itemHttpService
+        .run(request)
+        .getOrElse(fail(s"Request was not handled: $request"))
+
+    } yield {
+      response.status shouldEqual UnprocessableEntity
+
+      val responseEntity = response.as[Json].unsafeRunSync().hcursor
+
+      responseEntity.get[String]("code") shouldEqual Right(ApiResponseCodes.VALIDATION_FAILED)
+      responseEntity.get[String]("message") shouldEqual Right("Validation failed")
+      responseEntity.get[String]("type") shouldEqual Right("FieldErrors")
+      responseEntity.get[Vector[Validator.FieldError]]("errors") match {
+        case Left(failure) => fail(failure.message)
+        case Right(errors) =>
+          errors.size shouldEqual 3
+      }
     }).unsafeRunSync
 
   }

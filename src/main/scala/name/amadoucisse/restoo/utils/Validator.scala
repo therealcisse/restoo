@@ -9,7 +9,7 @@ import io.circe.{Decoder, Encoder}
 import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 
 object Validator {
-  final case class FieldError(name: String, message: String)
+  final case class FieldError(id: String, message: String)
 
   object FieldError {
     implicit def encoder: Encoder[FieldError] = deriveEncoder

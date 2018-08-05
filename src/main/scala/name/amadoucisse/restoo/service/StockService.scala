@@ -2,9 +2,13 @@ package name.amadoucisse.restoo
 package service
 
 import cats.Monad
+import cats.syntax.flatMap._
+import cats.syntax.functor._
+import cats.syntax.applicative._
+import cats.syntax.either._
 import cats.data.EitherT
-import domain.{AppError, ItemNotFoundError, ItemOutOfStockError, NoStockError, OccurredAt}
-import domain.items.{Item, ItemId, ItemRepositoryAlgebra}
+import domain.{AppError, ItemNotFound, ItemOutOfStock, OccurredAt}
+import domain.items.{ItemId, ItemRepositoryAlgebra}
 import domain.entries.{Delta, Entry, EntryRepositoryAlgebra, Stock}
 
 final class StockService[F[_]: Monad](
@@ -15,43 +19,33 @@ final class StockService[F[_]: Monad](
     val getAction: EitherT[F, AppError, Stock] = EitherT(getStock(itemId))
 
     val outOfStockErrorAction: EitherT[F, AppError, Stock] =
-      EitherT.leftT[F, Stock](ItemOutOfStockError)
-
-    val noStockErrorAction: EitherT[F, AppError, Stock] =
-      EitherT.leftT[F, Stock](ItemOutOfStockError)
+      EitherT.leftT[F, Stock](ItemOutOfStock)
 
     val addAction = EitherT
       .liftF(entryRepo.create(Entry(itemId, delta, OccurredAt.now)))
-      .flatMap(_ => getAction)
 
     getAction
       .flatMap { currentStock =>
         if (currentStock.quantity + delta.value < 0L) {
           outOfStockErrorAction
         } else {
-          addAction
+          addAction.flatMap(_ => getAction)
         }
-      }
-      .recoverWith {
-        case NoStockError(_) =>
-          if (delta.value < 0) {
-            noStockErrorAction
-          } else {
-            addAction
-          }
       }
   }
 
   def getStock(itemId: ItemId): F[AppError Either Stock] =
-    EitherT
-      .fromOptionF[F, AppError, Item](itemRepo.get(itemId), ItemNotFoundError)
-      .flatMap { item =>
-        EitherT
-          .fromOptionF[F, AppError, Long](entryRepo.count(itemId), NoStockError(item))
-          .subflatMap(quantity => Right(Stock(item, quantity)))
+    itemRepo.get(itemId).flatMap {
+      case Some(item) =>
+        entryRepo
+          .count(itemId)
+          .map {
+            case Some(quantity) => Stock(item, quantity).asRight
+            case None => Stock(item, 0).asRight
+          }
 
-      }
-      .value
+      case None => Either.left[AppError, Stock](ItemNotFound).pure[F]
+    }
 
 }
 

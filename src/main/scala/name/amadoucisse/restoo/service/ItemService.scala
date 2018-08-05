@@ -3,23 +3,25 @@ package service
 
 import cats._
 import cats.implicits._
-import cats.data.EitherT
 import domain.items.{Item, ItemId, ItemRepositoryAlgebra, ItemValidationAlgebra}
-import domain.{AppError, ItemAlreadyExistsError, ItemNotFoundError}
+import domain.{AppError, ItemNotFound}
 
 final class ItemService[F[_]: Monad](
     itemRepo: ItemRepositoryAlgebra[F],
     validation: ItemValidationAlgebra[F]) {
 
   def createItem(item: Item): F[AppError Either Item] =
-    for {
-      _ <- validation.doesNotExist(item)
-      saved <- EitherT.liftF[F, ItemAlreadyExistsError, Item](itemRepo.create(item)).value
-    } yield saved
+    validation.doesNotExist(item).flatMap {
+      case Left(l) => l.asLeft[Item].pure[F]
+      case _ =>
+        itemRepo.create(item).map { item =>
+          item.asRight
+        }
+    }
 
   def getItem(itemId: ItemId): F[AppError Either Item] =
     itemRepo.get(itemId).map { item =>
-      item.toRight[AppError](ItemNotFoundError)
+      item.toRight[AppError](ItemNotFound)
     }
 
   def deleteItem(itemId: ItemId): F[Unit] = itemRepo.delete(itemId)
@@ -28,7 +30,7 @@ final class ItemService[F[_]: Monad](
     for {
       _ <- validation.exists(item.id)
       saved <- itemRepo.update(item)
-    } yield saved.toRight[AppError](ItemNotFoundError)
+    } yield saved.toRight[AppError](ItemNotFound)
 
   def list(): fs2.Stream[F, Item] =
     itemRepo.list()

@@ -7,7 +7,7 @@ import pureconfig.error.ConfigReaderException
 
 case class AppConf(
     namespace: String,
-    db: DatabaseConfig,
+    db: DatabaseConf,
     server: ServerConf,
     swagger: SwaggerConf,
 )
