@@ -36,6 +36,7 @@ libraryDependencies ++= Seq(
   "org.tpolecat"            %% "doobie-h2"              % DoobieVersion,
   "org.tpolecat"            %% "doobie-scalatest"       % DoobieVersion,
   "org.tpolecat"            %% "doobie-hikari"          % DoobieVersion,
+  "org.tpolecat"            %% "doobie-postgres"        % DoobieVersion,
 
   "org.http4s"              %% "http4s-blaze-server"    % Http4sVersion,
   "org.http4s"              %% "http4s-circe"           % Http4sVersion,

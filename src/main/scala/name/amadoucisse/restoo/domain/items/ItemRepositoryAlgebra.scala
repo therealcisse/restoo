@@ -3,7 +3,7 @@ package domain
 package items
 
 trait ItemRepositoryAlgebra[F[_]] {
-  def create(item: Item): F[Item]
+  def create(item: Item): F[AppError Either Item]
 
   def update(item: Item): F[Option[Item]]
 

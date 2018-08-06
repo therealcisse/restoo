@@ -7,7 +7,8 @@ import cats.data.OptionT
 import cats.implicits._
 import doobie._
 import doobie.implicits._
-import domain.OccurredAt
+import doobie.postgres._
+import domain.{AppError, ItemAlreadyExists, OccurredAt}
 import domain.items._
 
 private object ItemSQL extends SQLCommon {
@@ -70,11 +71,15 @@ private object ItemSQL extends SQLCommon {
 final class DoobieItemRepositoryInterpreter[F[_]: Monad](val xa: Transactor[F])
     extends ItemRepositoryAlgebra[F] {
 
-  def create(item: Item): F[Item] =
+  @SuppressWarnings(Array("org.wartremover.warts.Any"))
+  def create(item: Item): F[AppError Either Item] =
     ItemSQL
       .insert(item)
       .withUniqueGeneratedKeys[Int]("id")
       .map(id => item.copy(id = ItemId(id).some))
+      .attemptSomeSqlState[AppError] {
+        case sqlstate.class23.UNIQUE_VIOLATION => ItemAlreadyExists(item)
+      }
       .transact(xa)
 
   def update(item: Item): F[Option[Item]] =

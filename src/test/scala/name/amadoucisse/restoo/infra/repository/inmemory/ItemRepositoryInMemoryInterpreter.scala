@@ -6,21 +6,24 @@ import java.util.Random
 
 import cats._
 import cats.implicits._
-
 import domain.items._
+import domain.{AppError, ItemAlreadyExists}
 
 import scala.collection.concurrent.TrieMap
 
-final class ItemRepositoryInMemoryInterpreter[F[_]: Applicative] extends ItemRepositoryAlgebra[F] {
+final class ItemRepositoryInMemoryInterpreter[F[_]: Monad] extends ItemRepositoryAlgebra[F] {
 
   private val cache = new TrieMap[ItemId, Item]
   private val random = new Random
 
-  def create(item: Item): F[Item] = {
-    val id = ItemId(random.nextInt.abs)
-    val toSave = item.copy(id = id.some)
-    cache += (id -> toSave)
-    toSave.pure[F]
+  def create(item: Item): F[AppError Either Item] = findByName(item.name).map {
+    case Some(_) => Either.left[AppError, Item](ItemAlreadyExists(item))
+    case None =>
+      val id = ItemId(random.nextInt.abs)
+      val toSave = item.copy(id = id.some)
+      cache += (id -> toSave)
+      toSave.asRight
+
   }
 
   def update(item: Item): F[Option[Item]] =
@@ -46,6 +49,6 @@ final class ItemRepositoryInMemoryInterpreter[F[_]: Applicative] extends ItemRep
 }
 
 object ItemRepositoryInMemoryInterpreter {
-  def apply[F[_]: Applicative]: ItemRepositoryInMemoryInterpreter[F] =
+  def apply[F[_]: Monad]: ItemRepositoryInMemoryInterpreter[F] =
     new ItemRepositoryInMemoryInterpreter[F]
 }
