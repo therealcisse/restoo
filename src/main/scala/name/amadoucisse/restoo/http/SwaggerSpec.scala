@@ -1,0 +1,439 @@
+package name.amadoucisse.restoo
+package http
+
+import io.circe.Json
+import config.SwaggerConf
+
+object SwaggerSpec {
+  import Json._
+
+  val ApiVersion = "v1"
+
+  // TODO: Use Rho
+  def swaggerSpec(swaggerConf: SwaggerConf): Json = obj(
+    "swagger" -> fromString("2.0"),
+    "info" -> obj(
+      "description" -> fromString("REST API for managing restaurant stock.")
+    ),
+    "host" -> fromString(swaggerConf.host),
+    "basePath" -> fromString(s"/api/$ApiVersion/items"),
+    "schemes" -> arr(swaggerConf.schemes.map(fromString): _*),
+    "paths" -> paths(),
+    "definitions" -> definitions()
+  )
+
+  private def paths() = obj(
+    "" -> obj(
+      "get" -> itemsGet(),
+      "post" -> itemPost(),
+    ),
+    "/{itemId}" -> obj(
+      "get" -> itemGet(),
+      "put" -> itemPut(),
+      "delete" -> itemDelete(),
+    ),
+    "/{itemId}/stocks" -> obj(
+      "get" -> itemStockGet(),
+      "put" -> itemStockPut(),
+    ),
+  )
+
+  private def itemsGet() = obj(
+    "summary" -> fromString("Get a list of items"),
+    "description" -> fromString(""),
+    "operationId" -> fromString("listItems"),
+    "consumes" -> arr(fromString("application/json")),
+    "produces" -> arr(fromString("application/json")),
+    "parameters" -> arr(),
+    "responses" -> obj(
+      "200" -> obj(
+        "description" -> fromString("Success"),
+        "schema" -> obj(
+          "type" -> fromString("array"),
+          "items" -> obj(
+            "$ref" -> fromString("#/definitions/Item")
+          )
+        ),
+      ))
+  )
+
+  private def itemGet() = obj(
+    "summary" -> fromString("Get single item"),
+    "description" -> fromString(""),
+    "operationId" -> fromString("getItem"),
+    "consumes" -> arr(),
+    "produces" -> arr(fromString("application/json")),
+    "parameters" -> arr(
+      obj(
+        "in" -> fromString("path"),
+        "name" -> fromString("itemId"),
+        "description" -> fromString("Id of the item."),
+        "type" -> fromString("integer"),
+        "format" -> fromString("int32"),
+        "required" -> fromBoolean(true),
+      )),
+    "responses" -> obj(
+      "200" -> obj(
+        "description" -> fromString("Success"),
+        "schema" -> obj(
+          "$ref" -> fromString("#/definitions/Item")
+        ),
+      ),
+      "404" -> obj(
+        "description" -> fromString("Item not found"),
+        "schema" -> obj(
+          "$ref" -> fromString("#/definitions/ApiResponseWrapper")
+        ),
+      ),
+    )
+  )
+
+  private def itemPost() = obj(
+    "summary" -> fromString("Create an item"),
+    "description" -> fromString(""),
+    "operationId" -> fromString("createItem"),
+    "consumes" -> arr(fromString("application/json")),
+    "produces" -> arr(fromString("application/json")),
+    "parameters" -> arr(
+      obj(
+        "in" -> fromString("body"),
+        "name" -> fromString("body"),
+        "description" -> fromString("ItemRequest object"),
+        "required" -> fromBoolean(true),
+        "schema" -> obj(
+          "$ref" -> fromString("#/definitions/ItemRequest")
+        )
+      )),
+    "responses" -> obj(
+      "200" -> obj(
+        "description" -> fromString("Success"),
+        "schema" -> obj(
+          "$ref" -> fromString("#/definitions/Item")
+        ),
+      ),
+      "409" -> obj(
+        "description" -> fromString("Item already exists"),
+        "schema" -> obj(
+          "$ref" -> fromString("#/definitions/ApiResponseWrapper")
+        ),
+      ),
+      "422" -> obj(
+        "description" -> fromString("Validation error"),
+        "schema" -> obj(
+          "$ref" -> fromString("#/definitions/FieldErrors"),
+        ),
+      ),
+    )
+  )
+
+  private def itemPut() = obj(
+    "summary" -> fromString("Update an item"),
+    "description" -> fromString(""),
+    "operationId" -> fromString("updateItem"),
+    "consumes" -> arr(fromString("application/json")),
+    "produces" -> arr(fromString("application/json")),
+    "parameters" -> arr(
+      obj(
+        "in" -> fromString("path"),
+        "name" -> fromString("itemId"),
+        "description" -> fromString("Id of the item."),
+        "type" -> fromString("integer"),
+        "format" -> fromString("int32"),
+        "required" -> fromBoolean(true),
+      ),
+      obj(
+        "in" -> fromString("body"),
+        "name" -> fromString("body"),
+        "description" -> fromString("Item object"),
+        "required" -> fromBoolean(true),
+        "schema" -> obj(
+          "$ref" -> fromString("#/definitions/ItemRequest")
+        )
+      )
+    ),
+    "responses" -> obj(
+      "200" -> obj(
+        "description" -> fromString("Success"),
+        "schema" -> obj(
+          "$ref" -> fromString("#/definitions/Item")
+        ),
+      ),
+      "404" -> obj(
+        "description" -> fromString("Item not found"),
+        "schema" -> obj(
+          "$ref" -> fromString("#/definitions/ApiResponseWrapper")
+        ),
+      ),
+      "422" -> obj(
+        "description" -> fromString("Validation error"),
+        "schema" -> obj(
+          "$ref" -> fromString("#/definitions/FieldErrors"),
+        ),
+      ),
+    ),
+  )
+
+  private def itemDelete() = obj(
+    "summary" -> fromString("Delete an item"),
+    "description" -> fromString(""),
+    "operationId" -> fromString("deleteItem"),
+    "consumes" -> arr(),
+    "produces" -> arr(fromString("application/json")),
+    "parameters" -> arr(
+      obj(
+        "in" -> fromString("path"),
+        "name" -> fromString("itemId"),
+        "description" -> fromString("Id of the item."),
+        "type" -> fromString("integer"),
+        "format" -> fromString("int64"),
+        "required" -> fromBoolean(true),
+      )),
+    "responses" -> obj(
+      "200" -> obj(
+        "description" -> fromString("Success"),
+      ))
+  )
+
+  private def itemStockGet() = obj(
+    "summary" -> fromString("Get item stock"),
+    "description" -> fromString(""),
+    "operationId" -> fromString("getItemStock"),
+    "consumes" -> arr(),
+    "produces" -> arr(fromString("application/json")),
+    "parameters" -> arr(
+      obj(
+        "in" -> fromString("path"),
+        "name" -> fromString("itemId"),
+        "description" -> fromString("Id of the item."),
+        "type" -> fromString("integer"),
+        "required" -> fromBoolean(true),
+      )),
+    "responses" -> obj(
+      "200" -> obj(
+        "description" -> fromString("Success"),
+        "schema" -> obj(
+          "$ref" -> fromString("#/definitions/Stock")
+        ),
+      ),
+      "404" -> obj(
+        "description" -> fromString("Item not found"),
+        "schema" -> obj(
+          "$ref" -> fromString("#/definitions/ApiResponseWrapper")
+        ),
+      ),
+    )
+  )
+
+  private def itemStockPut() = obj(
+    "summary" -> fromString("Update item stock"),
+    "description" -> fromString(""),
+    "operationId" -> fromString("updateItemStock"),
+    "consumes" -> arr(fromString("application/json")),
+    "produces" -> arr(fromString("application/json")),
+    "parameters" -> arr(
+      obj(
+        "in" -> fromString("path"),
+        "name" -> fromString("itemId"),
+        "description" -> fromString("Id of the item."),
+        "type" -> fromString("integer"),
+        "format" -> fromString("int32"),
+        "required" -> fromBoolean(true),
+      ),
+      obj(
+        "in" -> fromString("body"),
+        "name" -> fromString("body"),
+        "description" -> fromString("Delta object"),
+        "required" -> fromBoolean(true),
+        "schema" -> obj(
+          "$ref" -> fromString("#/definitions/Delta")
+        )
+      )
+    ),
+    "responses" -> obj(
+      "200" -> obj(
+        "description" -> fromString("Success"),
+        "schema" -> obj(
+          "$ref" -> fromString("#/definitions/Stock")
+        ),
+      ),
+      "404" -> obj(
+        "description" -> fromString("Item not found"),
+        "schema" -> obj(
+          "$ref" -> fromString("#/definitions/ApiResponseWrapper")
+        ),
+      ),
+      "409" -> obj(
+        "description" -> fromString("Item out of stock"),
+        "schema" -> obj(
+          "$ref" -> fromString("#/definitions/ApiResponseWrapper")
+        ),
+      ),
+    )
+  )
+
+  private def definitions() = obj(
+    "ItemRequest" -> obj(
+      "type" -> fromString("object"),
+      "required" -> arr(
+        fromString("name"),
+        fromString("price"),
+        fromString("category"),
+      ),
+      "properties" -> obj(
+        "name" -> obj(
+          "type" -> fromString("string"),
+          "minLength" -> fromInt(1),
+        ),
+        "price" -> obj(
+          "type" -> fromString("number"),
+          "format" -> fromString("double"),
+          "minimum" -> fromDoubleOrNull(0.0),
+        ),
+        "category" -> obj(
+          "type" -> fromString("string"),
+        ),
+      )
+    ),
+    "Delta" -> obj(
+      "type" -> fromString("object"),
+      "required" -> Json
+        .arr(fromString("delta")),
+      "properties" -> obj(
+        "delta" -> obj(
+          "type" -> fromString("integer"),
+          "format" -> fromString("int32"),
+        ),
+      )
+    ),
+    "Stock" -> obj(
+      "type" -> fromString("object"),
+      "required" -> arr(
+        fromString("item"),
+        fromString("quantity")
+      ),
+      "properties" -> obj(
+        "item" -> obj(
+          "$ref" -> fromString("#/definitions/Item")
+        ),
+        "quantity" -> obj(
+          "type" -> fromString("integer"),
+          "format" -> fromString("int64"),
+        ),
+      )
+    ),
+    "ApiResponseWrapper" -> obj(
+      "type" -> fromString("object"),
+      "required" -> arr(
+        fromString("error"),
+      ),
+      "properties" -> obj(
+        "error" -> obj(
+          "$ref" -> fromString("#/definitions/ApiResponse")
+        ),
+      )
+    ),
+    "FieldError" -> obj(
+      "type" -> fromString("object"),
+      "required" -> arr(
+        fromString("id"),
+        fromString("message"),
+        fromString("type"),
+      ),
+      "properties" -> obj(
+        "id" -> obj(
+          "type" -> fromString("string"),
+        ),
+        "message" -> obj(
+          "type" -> fromString("string"),
+        ),
+        "type" -> obj(
+          "type" -> fromString("string"),
+        ),
+      )
+    ),
+    "FieldErrors" -> obj(
+      "type" -> fromString("object"),
+      "required" -> arr(
+        fromString("code"),
+        fromString("message"),
+        fromString("type"),
+        fromString("errors"),
+      ),
+      "properties" -> obj(
+        "code" -> obj(
+          "type" -> fromString("string"),
+        ),
+        "message" -> obj(
+          "type" -> fromString("string"),
+        ),
+        "type" -> obj(
+          "type" -> fromString("string"),
+        ),
+        "errors" -> obj(
+          "type" -> fromString("array"),
+          "items" -> obj("$ref" -> fromString("#/definitions/FieldError")),
+        ),
+      )
+    ),
+    "ApiResponse" -> obj(
+      "type" -> fromString("object"),
+      "required" -> arr(
+        fromString("code"),
+        fromString("message"),
+        fromString("type"),
+      ),
+      "properties" -> obj(
+        "code" -> obj(
+          "type" -> fromString("string"),
+        ),
+        "message" -> obj(
+          "type" -> fromString("string"),
+        ),
+        "type" -> obj(
+          "type" -> fromString("string"),
+        ),
+      )
+    ),
+    "Item" -> obj(
+      "type" -> fromString("object"),
+      "required" -> arr(
+        fromString("name"),
+        fromString("price"),
+        fromString("category"),
+        fromString("createdAt"),
+        fromString("updatedAt"),
+        fromString("id"),
+      ),
+      "properties" -> obj(
+        "name" -> obj(
+          "type" -> fromString("string"),
+          "minLength" -> fromInt(1),
+        ),
+        "price" -> obj(
+          "type" -> fromString("number"),
+          "format" -> fromString("double"),
+          "minimum" -> fromDoubleOrNull(0.0),
+        ),
+        "category" -> obj(
+          "type" -> fromString("string"),
+          "minLength" -> fromInt(1),
+        ),
+        "createdAt" -> obj(
+          "type" -> fromString("string"),
+          "format" -> fromString("date-time"),
+          "readOnly" -> fromBoolean(true),
+        ),
+        "updatedAt" -> obj(
+          "type" -> fromString("string"),
+          "format" -> fromString("date-time"),
+          "readOnly" -> fromBoolean(true),
+        ),
+        "id" -> obj(
+          "type" -> fromString("integer"),
+          "format" -> fromString("int32"),
+          "readOnly" -> fromBoolean(true),
+        ),
+      ),
+    ),
+  )
+}

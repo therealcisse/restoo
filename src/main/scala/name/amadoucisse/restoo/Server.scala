@@ -14,7 +14,7 @@ import org.http4s.server.blaze.BlazeBuilder
 import org.http4s.server.prometheus.{PrometheusExportService, PrometheusMetrics}
 import io.opencensus.scala.http4s.TracingMiddleware
 import io.opencensus.scala.http.ServiceData
-import http.HttpErrorHandler
+import http.{HttpErrorHandler, SwaggerSpec}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 
@@ -53,7 +53,7 @@ class ServerStream[F[_]: Effect] extends StreamApp[F] {
       exitCode <- BlazeBuilder[F]
         .bindHttp(conf.server.port, conf.server.address)
         .mountService(Index.endpoints)
-        .mountService(service, s"/api/${ItemEndpoints.ApiVersion}/items")
+        .mountService(service, s"/api/${SwaggerSpec.ApiVersion}/items")
         .mountService(prometheusExportService.service)
         .mountService(
           webjarService(WebjarService.Config(cacheStrategy = MemoryCache[F])),
