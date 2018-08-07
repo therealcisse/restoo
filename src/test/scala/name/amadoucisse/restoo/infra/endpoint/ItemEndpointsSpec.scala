@@ -2,7 +2,7 @@ package name.amadoucisse.restoo
 package infra
 package endpoint
 
-import config.SwaggerConf
+import name.amadoucisse.restoo.config.SwaggerConf
 import domain.items._
 import domain.entries._
 import service.{ItemService, StockService}

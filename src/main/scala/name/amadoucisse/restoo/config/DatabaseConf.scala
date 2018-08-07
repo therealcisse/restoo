@@ -5,7 +5,7 @@ import cats.effect.{Async, Sync}
 import doobie.hikari.HikariTransactor
 import org.flywaydb.core.Flyway
 
-case class DatabaseConf(url: String, driver: String, user: String, password: String)
+final case class DatabaseConf(url: String, driver: String, user: String, password: String)
 
 object DatabaseConf {
 

@@ -5,7 +5,7 @@ package repository
 import cats.effect.IO
 import _root_.doobie.Transactor
 
-import config.{AppConf, DatabaseConf}
+import name.amadoucisse.restoo.config.{AppConf, DatabaseConf}
 
 package object doobie {
   def getTransactor: IO[Transactor[IO]] =

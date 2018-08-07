@@ -5,7 +5,7 @@ import cats.effect.Sync
 import cats.implicits._
 import pureconfig.error.ConfigReaderException
 
-case class AppConf(
+final case class AppConf(
     namespace: String,
     db: DatabaseConf,
     server: ServerConf,
