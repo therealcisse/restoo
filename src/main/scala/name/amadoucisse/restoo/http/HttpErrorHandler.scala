@@ -10,6 +10,7 @@ import org.http4s.dsl.Http4sDsl
 import org.http4s.Response
 
 final class HttpErrorHandler[F[_]: Monad] extends Http4sDsl[F] {
+  import AppError._
 
   val handle: AppError => F[Response[F]] = {
     case ErrorListing(errors) =>

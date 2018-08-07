@@ -7,7 +7,7 @@ import cats.syntax.functor._
 import cats.syntax.applicative._
 import cats.syntax.either._
 import cats.data.EitherT
-import domain.{AppError, ItemNotFound, ItemOutOfStock, OccurredAt}
+import domain.{AppError, OccurredAt}
 import domain.items.{ItemId, ItemRepositoryAlgebra}
 import domain.entries.{Delta, Entry, EntryRepositoryAlgebra, Stock}
 
@@ -16,10 +16,10 @@ final class StockService[F[_]: Monad](
     itemRepo: ItemRepositoryAlgebra[F]) {
 
   def createEntry(itemId: ItemId, delta: Delta): EitherT[F, AppError, Stock] = {
-    val getAction: EitherT[F, AppError, Stock] = EitherT(getStock(itemId))
+    val getAction = EitherT(getStock(itemId))
 
-    val outOfStockErrorAction: EitherT[F, AppError, Stock] =
-      EitherT.leftT[F, Stock](ItemOutOfStock)
+    val outOfStockErrorAction =
+      EitherT.leftT[F, Stock](AppError.itemOutOfStock)
 
     val addAction = EitherT
       .liftF(entryRepo.create(Entry(itemId, delta, OccurredAt.now)))
@@ -44,7 +44,7 @@ final class StockService[F[_]: Monad](
             case None => Stock(item, 0).asRight
           }
 
-      case None => Either.left[AppError, Stock](ItemNotFound).pure[F]
+      case None => AppError.itemNotFound.asLeft[Stock].pure[F]
     }
 
 }

@@ -157,7 +157,7 @@ object ItemEndpoints {
           )
       }
 
-      item.leftMap(ErrorListing).toEither
+      item.leftMap(AppError.errorListing).toEither
     }
   }
 

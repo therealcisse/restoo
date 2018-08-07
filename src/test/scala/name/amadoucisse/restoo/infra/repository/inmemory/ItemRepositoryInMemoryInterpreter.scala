@@ -7,7 +7,7 @@ import java.util.Random
 import cats._
 import cats.implicits._
 import domain.items._
-import domain.{AppError, ItemAlreadyExists}
+import domain.AppError
 
 import scala.collection.concurrent.TrieMap
 
@@ -17,7 +17,7 @@ final class ItemRepositoryInMemoryInterpreter[F[_]: Monad] extends ItemRepositor
   private val random = new Random
 
   def create(item: Item): F[AppError Either Item] = findByName(item.name).map {
-    case Some(_) => Either.left[AppError, Item](ItemAlreadyExists(item))
+    case Some(_) => AppError.itemAlreadyExists(item).asLeft
     case None =>
       val id = ItemId(random.nextInt.abs)
       val toSave = item.copy(id = id.some)

@@ -8,7 +8,7 @@ import cats.implicits._
 import doobie._
 import doobie.implicits._
 import doobie.postgres._
-import domain.{AppError, ItemAlreadyExists, OccurredAt}
+import domain.{AppError, OccurredAt}
 import domain.items._
 
 private object ItemSQL extends SQLCommon {
@@ -77,8 +77,8 @@ final class DoobieItemRepositoryInterpreter[F[_]: Monad](val xa: Transactor[F])
       .insert(item)
       .withUniqueGeneratedKeys[Int]("id")
       .map(id => item.copy(id = ItemId(id).some))
-      .attemptSomeSqlState[AppError] {
-        case sqlstate.class23.UNIQUE_VIOLATION => ItemAlreadyExists(item)
+      .attemptSomeSqlState {
+        case sqlstate.class23.UNIQUE_VIOLATION => AppError.itemAlreadyExists(item)
       }
       .transact(xa)
 
@@ -101,7 +101,7 @@ final class DoobieItemRepositoryInterpreter[F[_]: Monad](val xa: Transactor[F])
     ItemSQL.byName(name).option.transact(xa)
 
   def delete(itemId: ItemId): F[Unit] =
-    ItemSQL.delete(itemId).run.transact(xa).as(())
+    ItemSQL.delete(itemId).run.transact(xa).void
 
   def list(): fs2.Stream[F, Item] = ItemSQL.selectAll.stream.transact(xa)
 }
