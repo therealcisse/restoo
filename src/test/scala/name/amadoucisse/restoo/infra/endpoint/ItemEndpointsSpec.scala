@@ -49,7 +49,7 @@ class ItemEndpointsSpec
         .run(request)
         .getOrElse(fail(s"Request was not handled: $request"))
     } yield {
-      response.status shouldEqual Ok
+      response.status shouldEqual Created
     }).unsafeRunSync
 
   }
@@ -76,7 +76,7 @@ class ItemEndpointsSpec
         .getOrElse(fail(s"Request was not handled: $request"))
 
     } yield {
-      response.status shouldEqual Ok
+      response.status shouldEqual Created
     }).unsafeRunSync
 
     // Try adding a duplicate
@@ -173,6 +173,7 @@ class ItemEndpointsSpec
       updatedItem <- updateResponse.as[Item]
     } yield {
 
+      createResponse.status shouldEqual Created
       updateResponse.status shouldEqual Ok
       updatedItem.name.value shouldEqual item.name.reverse
       createdItem.id shouldEqual updatedItem.id
@@ -219,7 +220,7 @@ class ItemEndpointsSpec
             Uri.unsafeFromString("/" + createdItem.id.map(_.value.toString).get)))
         .getOrElse(fail(s"Get request was not handled"))
     } yield {
-      createResponse.status shouldEqual Ok
+      createResponse.status shouldEqual Created
       deleteResponse.status shouldEqual Ok
       getResponse.status shouldEqual NotFound
     }
@@ -285,6 +286,7 @@ class ItemEndpointsSpec
 
     } yield {
 
+      createResponse.status shouldEqual Created
       stock0.quantity shouldEqual 0
       stock1.quantity shouldEqual entry.delta
       stock2.quantity shouldEqual 0
@@ -336,6 +338,7 @@ class ItemEndpointsSpec
 
     } yield {
 
+      createResponse.status shouldEqual Created
       stock.quantity shouldEqual 0
       negStockResponse.status shouldEqual Conflict
     }).unsafeRunSync

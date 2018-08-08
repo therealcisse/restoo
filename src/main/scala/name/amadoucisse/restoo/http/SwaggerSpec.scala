@@ -105,7 +105,7 @@ object SwaggerSpec {
         )
       )),
     "responses" -> obj(
-      "200" -> obj(
+      "201" -> obj(
         "description" -> fromString("Success"),
         "schema" -> obj(
           "$ref" -> fromString("#/definitions/Item")

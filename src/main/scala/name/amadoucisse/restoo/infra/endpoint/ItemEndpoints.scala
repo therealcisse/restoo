@@ -40,7 +40,7 @@ final class ItemEndpoints[F[_]: Effect](implicit httpErrorHandler: HttpErrorHand
 
         for {
           item <- action.value
-          resp <- item.fold(httpErrorHandler.handle, item => Ok(item.asJson))
+          resp <- item.fold(httpErrorHandler.handle, item => Created(item.asJson))
         } yield resp
     }
 

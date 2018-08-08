@@ -3,6 +3,8 @@ packageSummary in Docker := "Restaurant stock management"
 
 dockerBaseImage := "openjdk:8-jre-alpine"
 
+version in Docker := "latest"
+
 enablePlugins(AshScriptPlugin)
 
 dockerExposedPorts := Seq(8080)
