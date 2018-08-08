@@ -1,4 +1,5 @@
 import ReleaseTransformations._
+import java.io.File
 
 organization    := "name.amadoucisse"
 name            := "restoo"
@@ -41,6 +42,7 @@ libraryDependencies ++= Seq(
   "org.http4s"              %% "http4s-blaze-server"    % Http4sVersion,
   "org.http4s"              %% "http4s-circe"           % Http4sVersion,
   "org.http4s"              %% "http4s-dsl"             % Http4sVersion,
+  "org.http4s"              %% "http4s-blaze-client"    % Http4sVersion,
 
   "org.http4s"              %% "http4s-prometheus-server-metrics" % Http4sVersion,
 
@@ -59,7 +61,27 @@ libraryDependencies ++= Seq(
   "io.opencensus"           % "opencensus-exporter-trace-zipkin"      % OpencensusZipkinVersion,
 )
 
-enablePlugins(ScalafmtPlugin, JavaAppPackaging)
+enablePlugins(ScalafmtPlugin, JavaAppPackaging, DockerComposePlugin)
+
+Defaults.itSettings
+
+lazy val root = project.in(file(".")).configs(IntegrationTest)
+
+//To use 'dockerComposeTest' to run tests in the 'IntegrationTest' scope instead of the default 'Test' scope:
+// 1) Package the tests that exist in the IntegrationTest scope
+testCasesPackageTask := (sbt.Keys.packageBin in IntegrationTest).value
+// 2) Specify the path to the IntegrationTest jar produced in Step 1
+testCasesJar := artifactPath.in(IntegrationTest, packageBin).value.getAbsolutePath
+// 3) Include any IntegrationTest scoped resources on the classpath if they are used in the tests
+testDependenciesClasspath := {
+  val fullClasspathCompile   = (fullClasspath in Compile).value
+  val classpathTestManaged   = (managedClasspath in IntegrationTest).value
+  val classpathTestUnmanaged = (unmanagedClasspath in IntegrationTest).value
+  val testResources          = (resources in IntegrationTest).value
+  (fullClasspathCompile.files ++ classpathTestManaged.files ++ classpathTestUnmanaged.files ++ testResources)
+    .map(_.getAbsoluteFile)
+    .mkString(File.pathSeparator)
+}
 
 cancelable in Global := true
 fork in run := true

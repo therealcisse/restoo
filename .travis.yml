@@ -11,7 +11,7 @@ scala:
 jdk: oraclejdk8
 
 script:
-- sbt test
+- sbt test dockerComposeTest
 
 cache:
   directories:

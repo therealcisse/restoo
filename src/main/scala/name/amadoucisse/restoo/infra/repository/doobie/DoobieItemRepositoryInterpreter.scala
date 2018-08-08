@@ -14,8 +14,8 @@ import domain.items._
 private object ItemSQL extends SQLCommon {
 
   def insert(item: Item): Update0 = sql"""
-    INSERT INTO items (name, price_in_cents, category)
-    VALUES (${item.name}, ${item.priceInCents}, ${item.category})
+    INSERT INTO items (name, price_in_cents, category, created_at, updated_at)
+    VALUES (${item.name}, ${item.priceInCents}, ${item.category}, ${item.createdAt}, ${item.updatedAt})
   """.update
 
   def update(item: Item, id: ItemId): Update0 = sql"""

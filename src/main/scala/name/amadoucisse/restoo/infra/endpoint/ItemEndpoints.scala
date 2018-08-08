@@ -150,7 +150,7 @@ object ItemEndpoints {
           Item(
             name = Name(name),
             priceInCents = Cents(price),
-            category = Category(category)
+            category = Category(category),
           )
       }
 

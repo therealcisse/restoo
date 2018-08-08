@@ -5,8 +5,8 @@ CREATE TABLE items (
   name VARCHAR(255) NOT NULL,
   price_in_cents INTEGER NOT NULL,
   category VARCHAR(255) NOT NULL,
-  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  created_at TIMESTAMP NOT NULL,
+  updated_at TIMESTAMP NOT NULL,
   constraint uniq_name unique (name)
 );
 

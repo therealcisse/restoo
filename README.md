@@ -46,6 +46,21 @@ $ docker run -it --rm -p 8080:8080 restoo:$VERSION
 
 See the swagger UI.
 
+## Tests
+
+To run tests:
+
+```sh
+$ sbt test
+```
+
+To run integration tests inside docker:
+
+```sh
+$ sbt dockerComposeTest
+```
+
+
 ## Tracing
 
 

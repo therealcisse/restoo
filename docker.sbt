@@ -6,3 +6,5 @@ dockerBaseImage := "openjdk:8-jre-alpine"
 enablePlugins(AshScriptPlugin)
 
 dockerExposedPorts := Seq(8080)
+
+dockerImageCreationTask := (publishLocal in Docker).value
