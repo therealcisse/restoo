@@ -56,7 +56,7 @@ private object ItemSQL extends SQLCommon {
     DELETE FROM items WHERE id = $itemId
   """.update
 
-  val selectAll: Query0[Item] = sql"""
+  def selectAll(category: Option[Category]): Query0[Item] = (sql"""
     SELECT
       name,
       price_in_cents,
@@ -65,7 +65,7 @@ private object ItemSQL extends SQLCommon {
       updated_at,
       id
     FROM items
-  """.query
+    """ ++ Fragments.whereAndOpt(category.map(c => fr"category = $c"))).query
 }
 
 final class DoobieItemRepositoryInterpreter[F[_]: Monad](val xa: Transactor[F])
@@ -103,7 +103,8 @@ final class DoobieItemRepositoryInterpreter[F[_]: Monad](val xa: Transactor[F])
   def delete(itemId: ItemId): F[Unit] =
     ItemSQL.delete(itemId).run.transact(xa).void
 
-  def list(): fs2.Stream[F, Item] = ItemSQL.selectAll.stream.transact(xa)
+  def list(category: Option[Category]): fs2.Stream[F, Item] =
+    ItemSQL.selectAll(category).stream.transact(xa)
 }
 
 object DoobieItemRepositoryInterpreter {

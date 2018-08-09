@@ -45,7 +45,12 @@ final class ItemRepositoryInMemoryInterpreter[F[_]: Monad] extends ItemRepositor
     ().pure[F]
   }
 
-  def list(): fs2.Stream[F, Item] = fs2.Stream.emits(cache.values.toVector.sortBy(_.name.value))
+  def list(category: Option[Category]): fs2.Stream[F, Item] = fs2.Stream.emits {
+    category match {
+      case Some(c) => cache.values.filter(_.category == c).toVector.sortBy(_.name.value)
+      case None => cache.values.toVector.sortBy(_.name.value)
+    }
+  }
 }
 
 object ItemRepositoryInMemoryInterpreter {

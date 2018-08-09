@@ -13,11 +13,11 @@ object AppError {
 
   case object ItemOutOfStock extends AppError
 
-  final case class ErrorListing(errors: NonEmptyList[Validator.FieldError]) extends AppError
+  final case class InvalidEntity(errors: NonEmptyList[Validator.FieldError]) extends AppError
 
   def itemAlreadyExists(item: Item): AppError = ItemAlreadyExists(item)
   def itemNotFound: AppError = ItemNotFound
   def itemOutOfStock: AppError = ItemOutOfStock
-  def errorListing(errors: NonEmptyList[Validator.FieldError]): AppError =
-    ErrorListing(errors)
+  def invalidEntity(errors: NonEmptyList[Validator.FieldError]): AppError =
+    InvalidEntity(errors)
 }

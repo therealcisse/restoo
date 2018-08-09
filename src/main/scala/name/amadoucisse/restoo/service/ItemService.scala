@@ -3,7 +3,7 @@ package service
 
 import cats._
 import cats.implicits._
-import domain.items.{Item, ItemId, ItemRepositoryAlgebra, ItemValidationAlgebra}
+import domain.items.{Category, Item, ItemId, ItemRepositoryAlgebra, ItemValidationAlgebra}
 import domain.AppError
 
 final class ItemService[F[_]: Monad](
@@ -25,8 +25,8 @@ final class ItemService[F[_]: Monad](
       else AppError.itemNotFound.asLeft.pure[F]
     } yield saved
 
-  def list(): fs2.Stream[F, Item] =
-    itemRepo.list()
+  def list(category: Option[Category]): fs2.Stream[F, Item] =
+    itemRepo.list(category)
 }
 
 object ItemService {

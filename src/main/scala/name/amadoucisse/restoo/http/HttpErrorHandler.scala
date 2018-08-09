@@ -13,7 +13,7 @@ final class HttpErrorHandler[F[_]: Monad] extends Http4sDsl[F] {
   import AppError._
 
   val handle: AppError => F[Response[F]] = {
-    case ErrorListing(errors) =>
+    case InvalidEntity(errors) =>
       UnprocessableEntity(
         Json.obj(
           "code" -> Json.fromString(ApiResponseCodes.VALIDATION_FAILED),

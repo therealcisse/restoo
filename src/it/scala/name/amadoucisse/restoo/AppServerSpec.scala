@@ -48,6 +48,32 @@ class AppServerSpec
         _ = items.size shouldBe 1
         _ = items should contain(item)
 
+        // list: no filter
+        listOfItems <- httpClient.expect[Seq[Item]](
+          Request[IO](Method.GET, uri("items"))
+        )
+        _ = listOfItems.size shouldBe 1
+        _ = listOfItems should contain(item)
+
+        // list: filter by category
+        listOfItems <- httpClient.expect[Seq[Item]](
+          Request[IO](
+            Method.GET,
+            uri("items")
+              .withQueryParam("category", itemRequest.category))
+        )
+        _ = listOfItems.size shouldBe 1
+        _ = listOfItems should contain(item)
+
+        // list: filter by unknown category
+        listOfItems <- httpClient.expect[Seq[Item]](
+          Request[IO](
+            Method.GET,
+            uri("items")
+              .withQueryParam("category", "unknown"))
+        )
+        _ = listOfItems.size shouldBe 0
+
         updatedItemRequest = itemRequest.copy(name = "heyo")
         updatedItem <- httpClient.expect[Item](
           Request[IO](Method.PUT, uri(s"items/${item.id.value.value}"))

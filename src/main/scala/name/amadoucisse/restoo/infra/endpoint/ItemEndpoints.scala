@@ -10,13 +10,14 @@ import io.circe.generic.auto._
 import io.circe.syntax._
 import org.http4s.circe._
 import org.http4s.dsl.Http4sDsl
-import org.http4s.{EntityDecoder, HttpService}
+import org.http4s.{EntityDecoder, HttpService, QueryParamDecoder}
 import domain._
 import domain.items._
 import domain.entries._
 import config.SwaggerConf
 import http.{HttpErrorHandler, SwaggerSpec}
 import service.{ItemService, StockService}
+import utils.Validator
 
 final class ItemEndpoints[F[_]: Effect](implicit httpErrorHandler: HttpErrorHandler[F])
     extends Http4sDsl[F] {
@@ -63,11 +64,20 @@ final class ItemEndpoints[F[_]: Effect](implicit httpErrorHandler: HttpErrorHand
         } yield resp
     }
 
+  implicit val categoryQueryParamDecoder: QueryParamDecoder[Category] =
+    QueryParamDecoder[String].map(Category(_))
+
+  object OptionalCategoryQueryParamMatcher
+      extends OptionalQueryParamDecoderMatcher[Category]("category")
+
   private def listEndpoint(itemService: ItemService[F]): HttpService[F] =
     HttpService[F] {
-      case GET -> Root =>
+      case GET -> Root :? OptionalCategoryQueryParamMatcher(maybeCategory) =>
         Ok(
-          fs2.Stream("[") ++ itemService.list().map(_.asJson.noSpaces).intersperse(",") ++ fs2
+          fs2.Stream("[") ++ itemService
+            .list(maybeCategory)
+            .map(_.asJson.noSpaces)
+            .intersperse(",") ++ fs2
             .Stream("]"))
     }
 
@@ -139,9 +149,9 @@ object ItemEndpoints {
     new ItemEndpoints[F].endpoints(itemService, stockService, swaggerConf)
 
   final case class ItemRequest(name: String, price: Double, category: String) {
-    import utils.Validator._
+    import Validator._
 
-    def validate: Either[AppError, Item] = {
+    def validate: AppError Either Item = {
       val item = (
         validateNonEmpty(name, FieldError("item.name", "error.empty")),
         validateNonNegative(price, FieldError("item.price", "error.negative")),
@@ -154,7 +164,7 @@ object ItemEndpoints {
           )
       }
 
-      item.leftMap(AppError.errorListing).toEither
+      item.leftMap(AppError.invalidEntity).toEither
     }
   }
 

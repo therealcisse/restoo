@@ -44,7 +44,13 @@ object SwaggerSpec {
     "operationId" -> fromString("listItems"),
     "consumes" -> arr(fromString("application/json")),
     "produces" -> arr(fromString("application/json")),
-    "parameters" -> arr(),
+    "parameters" -> arr(
+      obj(
+        "in" -> fromString("query"),
+        "name" -> fromString("category"),
+        "description" -> fromString("Optional category."),
+        "type" -> fromString("string"),
+      )),
     "responses" -> obj(
       "200" -> obj(
         "description" -> fromString("Success"),

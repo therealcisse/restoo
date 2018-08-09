@@ -13,5 +13,5 @@ trait ItemRepositoryAlgebra[F[_]] {
 
   def delete(itemId: ItemId): F[Unit]
 
-  def list(): fs2.Stream[F, Item]
+  def list(category: Option[Category]): fs2.Stream[F, Item]
 }
