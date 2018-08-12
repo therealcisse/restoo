@@ -5,11 +5,11 @@ organization    := "name.amadoucisse"
 name            := "restoo"
 scalaVersion    := "2.12.6"
 
-val CatsVersion       = "1.1.0"
+val CatsVersion       = "1.2.0"
 val CirceVersion      = "0.9.3"
 val Http4sVersion     = "0.18.15"
 val ScalaCheckVersion = "1.14.0"
-val ScalaTestVersion  = "3.0.4"
+val ScalaTestVersion  = "3.0.5"
 val DoobieVersion     = "0.5.3"
 val H2Version         = "1.4.196"
 val FlywayVersion     = "5.1.4"
@@ -17,7 +17,7 @@ val PureConfigVersion = "0.9.1"
 
 val LogbackVersion    = "1.2.3"
 
-val SwaggerUIVersion  = "3.9.3"
+val SwaggerUIVersion  = "3.17.6"
 
 val OpencensusHtt4sVersion   = "0.6.0"
 val OpencensusLoggingVersion = "0.15.0"

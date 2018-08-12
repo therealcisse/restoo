@@ -11,5 +11,5 @@ object OccurredAt {
   implicit val encoder: Encoder[OccurredAt] = encodeInstant.contramap[OccurredAt](_.value)
   implicit val decoder: Decoder[OccurredAt] = decodeInstant.map(OccurredAt(_))
 
-  def now = OccurredAt(Instant.now)
+  def now: OccurredAt = OccurredAt(Instant.now)
 }

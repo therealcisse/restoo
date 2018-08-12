@@ -5,7 +5,7 @@ addSbtPlugin("io.spray" % "sbt-revolver" % "0.9.1")
 
 addSbtPlugin("com.geirsson" % "sbt-scalafmt" % "1.5.1")
 
-addSbtPlugin("org.wartremover" % "sbt-wartremover" % "2.3.1")
+addSbtPlugin("org.wartremover" % "sbt-wartremover" % "2.3.3")
 
 // Database migrations
 addSbtPlugin("org.flywaydb" % "flyway-sbt" % "4.2.0")

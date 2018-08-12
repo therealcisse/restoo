@@ -2,9 +2,8 @@ package name.amadoucisse.restoo
 package domain
 package items
 
-import cats.Monad
+import cats.{Applicative, Monad}
 import cats.syntax.functor._
-import cats.syntax.applicative._
 
 final class ItemValidationInterpreter[F[_]: Monad](itemRepo: ItemRepositoryAlgebra[F])
     extends ItemValidationAlgebra[F] {
@@ -12,12 +11,12 @@ final class ItemValidationInterpreter[F[_]: Monad](itemRepo: ItemRepositoryAlgeb
   def exists(itemId: Option[ItemId]): F[Boolean] =
     itemId match {
       case Some(id) => itemRepo.get(id).map(_.isDefined)
-      case None => false.pure[F]
+      case None => Applicative[F].pure(false)
     }
 
 }
 
 object ItemValidationInterpreter {
-  def apply[F[_]: Monad](itemRepo: ItemRepositoryAlgebra[F]) =
+  def apply[F[_]: Monad](itemRepo: ItemRepositoryAlgebra[F]): ItemValidationInterpreter[F] =
     new ItemValidationInterpreter(itemRepo)
 }
