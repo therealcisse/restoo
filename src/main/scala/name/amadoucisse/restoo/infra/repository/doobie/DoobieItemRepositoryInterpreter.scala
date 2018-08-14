@@ -3,7 +3,7 @@ package infra
 package repository.doobie
 
 import cats.Monad
-import cats.data.OptionT
+import cats.data.EitherT
 import cats.implicits._
 import doobie._
 import doobie.implicits._
@@ -82,15 +82,26 @@ final class DoobieItemRepositoryInterpreter[F[_]: Monad](val xa: Transactor[F])
       }
       .transact(xa)
 
-  def update(item: Item): F[Option[Item]] =
-    OptionT
-      .fromOption[F](item.id)
+  def update(item: Item): F[AppError Either Item] =
+    EitherT
+      .fromOption[F](item.id, AppError.itemNotFound)
       .flatMapF { id =>
         val newItem = item.copy(updatedAt = OccurredAt.now)
         ItemSQL
           .update(newItem, id)
           .run
-          .transact(xa) *> get(id)
+          .attemptSomeSqlState {
+            case sqlstate.class23.UNIQUE_VIOLATION => AppError.duplicateItem(item.name)
+          }
+          .transact(xa)
+          .flatMap {
+            case Right(affectedRows) =>
+              if (affectedRows == 1) get(id).map(_.toRight(AppError.itemNotFound))
+              else AppError.itemNotFound.asLeft[Item].pure[F]
+
+            case Left(e) => e.asLeft[Item].pure[F]
+          }
+
       }
       .value
 

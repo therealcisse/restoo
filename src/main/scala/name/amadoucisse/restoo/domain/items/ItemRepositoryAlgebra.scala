@@ -5,7 +5,7 @@ package items
 trait ItemRepositoryAlgebra[F[_]] {
   def create(item: Item): F[AppError Either Item]
 
-  def update(item: Item): F[Option[Item]]
+  def update(item: Item): F[AppError Either Item]
 
   def get(id: ItemId): F[Option[Item]]
 

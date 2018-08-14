@@ -31,8 +31,7 @@ class ItemEndpointsSpec
   test("add item") {
 
     val itemRepo = ItemRepositoryInMemoryInterpreter[IO]
-    val itemValidation = ItemValidationInterpreter[IO](itemRepo)
-    val itemService = ItemService(itemRepo, itemValidation)
+    val itemService = ItemService(itemRepo)
 
     val entryRepo = EntryRepositoryInMemoryInterpreter[IO]
     val stockService = StockService(entryRepo, itemRepo)
@@ -54,11 +53,70 @@ class ItemEndpointsSpec
 
   }
 
-  test("disallow duplicate items") {
+  test("disallow duplicate item names on update") {
 
     val itemRepo = ItemRepositoryInMemoryInterpreter[IO]
-    val itemValidation = ItemValidationInterpreter[IO](itemRepo)
-    val itemService = ItemService(itemRepo, itemValidation)
+    val itemService = ItemService(itemRepo)
+
+    val entryRepo = EntryRepositoryInMemoryInterpreter[IO]
+    val stockService = StockService(entryRepo, itemRepo)
+
+    val swaggerConf = SwaggerConf("localhost", Nil)
+
+    val itemHttpService = ItemEndpoints.endpoints[IO](itemService, stockService, swaggerConf)
+
+    implicit val itemDecoder: EntityDecoder[IO, Item] = jsonOf
+
+    val itemARequest =
+      ItemEndpoints.ItemRequest(name = "ItemA", price = 99.99, category = "Food & Drinks")
+    val itemBRequest = itemARequest.copy(name = "ItemB")
+
+    (for {
+
+      // Add item A
+      request <- Request[IO](Method.POST, Uri.uri("/")).withBody(itemARequest.asJson)
+      response <- itemHttpService
+        .run(request)
+        .getOrElse(fail(s"Request was not handled: $request"))
+      _ = response.status shouldEqual Created
+      itemA <- response.as[Item]
+      _ = itemA.name shouldEqual Name(itemARequest.name)
+
+      // Add item B
+      request <- Request[IO](Method.POST, Uri.uri("/")).withBody(itemBRequest.asJson)
+      response <- itemHttpService
+        .run(request)
+        .getOrElse(fail(s"Request was not handled: $request"))
+      _ = response.status shouldEqual Created
+      itemB <- response.as[Item]
+      _ = itemB.name shouldEqual Name(itemBRequest.name)
+
+      // Try updating itemB's name to equal itemA's name
+      itemToUpdate = itemBRequest.copy(name = itemA.name.value)
+      updateRequest <- Request[IO](
+        Method.PUT,
+        Uri.unsafeFromString("/" + itemB.id.map(_.value.toString).get))
+        .withBody(itemToUpdate.asJson)
+      updateResponse <- itemHttpService
+        .run(updateRequest)
+        .getOrElse(fail(s"Request was not handled: $updateRequest"))
+      updatedItem <- updateResponse.as[Json]
+      _ = updateResponse.status shouldEqual Conflict
+      _ = updatedItem.hcursor.downField("error").get[String]("code") shouldEqual Right(
+        ApiResponseCodes.CONFLICT)
+      _ = updatedItem.hcursor.downField("error").get[String]("message") shouldEqual Right(
+        "Item name is taken")
+      _ = updatedItem.hcursor.downField("error").get[String]("type") shouldEqual Right(
+        "DuplicateItem")
+
+    } yield {}).unsafeRunSync
+
+  }
+
+  test("disallow duplicate items on create") {
+
+    val itemRepo = ItemRepositoryInMemoryInterpreter[IO]
+    val itemService = ItemService(itemRepo)
 
     val entryRepo = EntryRepositoryInMemoryInterpreter[IO]
     val stockService = StockService(entryRepo, itemRepo)
@@ -102,8 +160,7 @@ class ItemEndpointsSpec
   test("disallow invalid items") {
 
     val itemRepo = ItemRepositoryInMemoryInterpreter[IO]
-    val itemValidation = ItemValidationInterpreter[IO](itemRepo)
-    val itemService = ItemService(itemRepo, itemValidation)
+    val itemService = ItemService(itemRepo)
 
     val entryRepo = EntryRepositoryInMemoryInterpreter[IO]
     val stockService = StockService(entryRepo, itemRepo)
@@ -140,8 +197,7 @@ class ItemEndpointsSpec
   test("update item") {
 
     val itemRepo = ItemRepositoryInMemoryInterpreter[IO]
-    val itemValidation = ItemValidationInterpreter[IO](itemRepo)
-    val itemService = ItemService(itemRepo, itemValidation)
+    val itemService = ItemService(itemRepo)
 
     val entryRepo = EntryRepositoryInMemoryInterpreter[IO]
     val stockService = StockService(entryRepo, itemRepo)
@@ -184,8 +240,7 @@ class ItemEndpointsSpec
   test("delete item by id") {
 
     val itemRepo = ItemRepositoryInMemoryInterpreter[IO]
-    val itemValidation = ItemValidationInterpreter[IO](itemRepo)
-    val itemService = ItemService[IO](itemRepo, itemValidation)
+    val itemService = ItemService[IO](itemRepo)
 
     val entryRepo = EntryRepositoryInMemoryInterpreter[IO]
     val stockService = StockService(entryRepo, itemRepo)
@@ -229,8 +284,7 @@ class ItemEndpointsSpec
   test("add or remove stock") {
 
     val itemRepo = ItemRepositoryInMemoryInterpreter[IO]
-    val itemValidation = ItemValidationInterpreter[IO](itemRepo)
-    val itemService = ItemService(itemRepo, itemValidation)
+    val itemService = ItemService(itemRepo)
 
     val entryRepo = EntryRepositoryInMemoryInterpreter[IO]
     val stockService = StockService(entryRepo, itemRepo)
@@ -297,8 +351,7 @@ class ItemEndpointsSpec
   test("no negative stock") {
 
     val itemRepo = ItemRepositoryInMemoryInterpreter[IO]
-    val itemValidation = ItemValidationInterpreter[IO](itemRepo)
-    val itemService = ItemService(itemRepo, itemValidation)
+    val itemService = ItemService(itemRepo)
 
     val entryRepo = EntryRepositoryInMemoryInterpreter[IO]
     val stockService = StockService(entryRepo, itemRepo)

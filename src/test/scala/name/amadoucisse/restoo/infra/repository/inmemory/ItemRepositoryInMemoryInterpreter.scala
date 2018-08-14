@@ -5,6 +5,7 @@ package repository.inmemory
 import java.util.Random
 
 import cats._
+import cats.data.EitherT
 import cats.implicits._
 import domain.items._
 import domain.AppError
@@ -26,13 +27,17 @@ final class ItemRepositoryInMemoryInterpreter[F[_]: Monad] extends ItemRepositor
 
   }
 
-  def update(item: Item): F[Option[Item]] =
-    item.id
-      .map { id =>
-        cache.update(id, item)
-        item
+  def update(item: Item): F[AppError Either Item] =
+    EitherT
+      .fromOption[F](item.id, AppError.itemNotFound)
+      .subflatMap { id =>
+        if (cache.exists(_._2.name == item.name)) AppError.duplicateItem(item.name).asLeft[Item]
+        else {
+          cache.update(id, item)
+          item.asRight[AppError]
+        }
       }
-      .pure[F]
+      .value
 
   def get(id: ItemId): F[Option[Item]] =
     cache.get(id).pure[F]

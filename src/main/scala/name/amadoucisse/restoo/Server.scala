@@ -5,7 +5,6 @@ import cats.implicits._
 import fs2.{Stream, StreamApp}
 import io.prometheus.client.CollectorRegistry
 import config.{AppConf, DatabaseConf}
-import domain.items.ItemValidationInterpreter
 import infra.endpoint.{Index, ItemEndpoints}
 import infra.repository.doobie.{DoobieEntryRepositoryInterpreter, DoobieItemRepositoryInterpreter}
 import service.{ItemService, StockService}
@@ -32,8 +31,7 @@ class ServerStream[F[_]: Effect] extends StreamApp[F] {
 
       itemRepo = DoobieItemRepositoryInterpreter(xa)
       entryRepo = DoobieEntryRepositoryInterpreter(xa)
-      itemValidation = ItemValidationInterpreter(itemRepo)
-      itemService = ItemService(itemRepo, itemValidation)
+      itemService = ItemService(itemRepo)
       stockService = StockService(entryRepo, itemRepo)
 
       metricsRegistry <- Stream.eval(CollectorRegistry.defaultRegistry.pure[F])

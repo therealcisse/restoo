@@ -3,12 +3,10 @@ package service
 
 import cats._
 import cats.implicits._
-import domain.items.{Category, Item, ItemId, ItemRepositoryAlgebra, ItemValidationAlgebra}
+import domain.items.{Category, Item, ItemId, ItemRepositoryAlgebra}
 import domain.AppError
 
-final class ItemService[F[_]: Monad](
-    itemRepo: ItemRepositoryAlgebra[F],
-    validation: ItemValidationAlgebra[F]) {
+final class ItemService[F[_]: Monad](itemRepo: ItemRepositoryAlgebra[F]) {
 
   def createItem(item: Item): F[AppError Either Item] =
     itemRepo.create(item)
@@ -18,20 +16,13 @@ final class ItemService[F[_]: Monad](
 
   def deleteItem(itemId: ItemId): F[Unit] = itemRepo.delete(itemId)
 
-  def update(item: Item): F[AppError Either Item] =
-    for {
-      itemExists <- validation.exists(item.id)
-      saved <- if (itemExists) itemRepo.update(item).map(_.toRight(AppError.itemNotFound))
-      else AppError.itemNotFound.asLeft.pure[F]
-    } yield saved
+  def update(item: Item): F[AppError Either Item] = itemRepo.update(item)
 
   def list(category: Option[Category]): fs2.Stream[F, Item] =
     itemRepo.list(category)
 }
 
 object ItemService {
-  def apply[F[_]: Monad](
-      repository: ItemRepositoryAlgebra[F],
-      validation: ItemValidationAlgebra[F]): ItemService[F] =
-    new ItemService[F](repository, validation)
+  def apply[F[_]: Monad](repository: ItemRepositoryAlgebra[F]): ItemService[F] =
+    new ItemService[F](repository)
 }

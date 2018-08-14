@@ -29,6 +29,9 @@ final class HttpErrorHandler[F[_]: Monad] extends Http4sDsl[F] {
     case ItemAlreadyExists(_) =>
       Conflict(ApiResponse("ItemAlreadyExists", ApiResponseCodes.CONFLICT, "Item already exists"))
 
+    case DuplicateItem(_) =>
+      Conflict(ApiResponse("DuplicateItem", ApiResponseCodes.CONFLICT, "Item name is taken"))
+
     case ItemOutOfStock =>
       Conflict(ApiResponse("ItemOutOfStock", ApiResponseCodes.CONFLICT, "Item out of stock"))
   }
