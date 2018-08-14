@@ -61,7 +61,11 @@ libraryDependencies ++= Seq(
   "io.opencensus"           % "opencensus-exporter-trace-zipkin"      % OpencensusZipkinVersion,
 )
 
-enablePlugins(ScalafmtPlugin, JavaAppPackaging, DockerComposePlugin)
+enablePlugins(ScalafmtPlugin, JavaAppPackaging, DockerComposePlugin, BuildInfoPlugin)
+
+buildInfoKeys := Seq[BuildInfoKey]("SwaggerUIVersion" -> SwaggerUIVersion)
+buildInfoPackage := organization.value + "." + name.value
+buildInfoObject := "Info"
 
 Defaults.itSettings
 

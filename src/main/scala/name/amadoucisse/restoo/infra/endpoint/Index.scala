@@ -21,8 +21,10 @@ class Index[F[_]: Effect] extends Http4sDsl[F] {
   val service: HttpService[F] = HttpService[F] {
     case GET -> Root =>
       TemporaryRedirect(
-        Location(uri("/assets/swagger-ui/3.17.6/index.html")
-          .withQueryParam("url", itemsSwaggerPath)))
+        Location(
+          Uri
+            .unsafeFromString(s"/assets/swagger-ui/${Info.SwaggerUIVersion}/index.html")
+            .withQueryParam("url", itemsSwaggerPath)))
 
   }
 
