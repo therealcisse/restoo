@@ -57,5 +57,7 @@ class ServerStream[F[_]: Effect] extends StreamApp[F] {
           webjarService(WebjarService.Config(cacheStrategy = MemoryCache[F])),
           "/assets")
         .serve
+
+      _ <- Stream.eval(DatabaseConf.shutdown(xa))
     } yield exitCode
 }

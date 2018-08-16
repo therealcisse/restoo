@@ -2,7 +2,7 @@ package name.amadoucisse.restoo
 package config
 
 import cats.effect.{Async, Sync}
-import doobie.hikari.HikariTransactor
+import doobie.hikari._, doobie.hikari.implicits._
 import org.flywaydb.core.Flyway
 
 final case class DatabaseConf(url: String, driver: String, user: String, password: String)
@@ -26,4 +26,11 @@ object DatabaseConf {
         ()
       }
     }
+
+  /**
+    * Shutdown the connection pool
+    *
+    */
+  def shutdown[F[_]: Sync](xa: HikariTransactor[F]): F[Unit] =
+    xa.shutdown
 }
