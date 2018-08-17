@@ -17,9 +17,9 @@ object AppConf {
   import pureconfig._
 
   /**
-    * Loads the pet store config using PureConfig.  If configuration is invalid we will
-    * return an error.  This should halt the application from starting up.
-    */
+   * Loads the pet store config using PureConfig.  If configuration is invalid we will
+   * return an error.  This should halt the application from starting up.
+   */
   def load[F[_]](implicit E: Sync[F]): F[AppConf] =
     E.delay(loadConfig[AppConf]("restoo")).flatMap {
       case Right(ok) => E.pure(ok)

@@ -14,9 +14,9 @@ object DatabaseConf {
       .newHikariTransactor[F](dbConf.driver, dbConf.url, dbConf.user, dbConf.password)
 
   /**
-    * Runs the flyway migrations against the target database
-    *
-    */
+   * Runs the flyway migrations against the target database
+   *
+   */
   def initializeDb[F[_]](xa: HikariTransactor[F])(implicit S: Sync[F]): F[Unit] =
     xa.configure { ds =>
       S.delay {
@@ -28,9 +28,9 @@ object DatabaseConf {
     }
 
   /**
-    * Shutdown the connection pool
-    *
-    */
+   * Shutdown the connection pool
+   *
+   */
   def shutdown[F[_]: Sync](xa: HikariTransactor[F]): F[Unit] =
     xa.shutdown
 }

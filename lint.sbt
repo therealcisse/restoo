@@ -2,6 +2,8 @@ wartremoverErrors ++= Warts.unsafe
 
 wartremoverErrors -= Wart.NonUnitStatements
 
+scalafixSemanticdbVersion := "4.0.0-M8"
+
 scalacOptions ++= Seq(
   // format: off
   "-deprecation",                      // Emit warning and location for usages of deprecated APIs.
