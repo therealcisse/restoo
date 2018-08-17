@@ -4,6 +4,8 @@ wartremoverErrors -= Wart.NonUnitStatements
 
 scalafixSemanticdbVersion := "4.0.0-M8"
 
+scalafixEnabled := false
+
 scalacOptions ++= Seq(
   // format: off
   "-deprecation",                      // Emit warning and location for usages of deprecated APIs.
@@ -54,14 +56,10 @@ scalacOptions ++= Seq(
   // format: on
 )
 
-scalacOptions in (Compile, console) ~= (_.filterNot(
-  Set(
-    "-Ywarn-unused:imports",
-    "-Xfatal-warnings"
-  )))
+Compile / console / scalacOptions := (console / scalacOptions).value.filterNot(
+  opt => opt.contains("wartremover") || opt.contains("-Ywarn-unused:imports") || opt.contains("-Xfatal-warnings")
+)
 
-scalacOptions in (Test, console) ~= (_.filterNot(
-  Set(
-    "-Ywarn-unused:imports",
-    "-Xfatal-warnings"
-  )))
+Test / console / scalacOptions := (console / scalacOptions).value.filterNot(
+  opt => opt.contains("wartremover") || opt.contains("-Ywarn-unused:imports") || opt.contains("-Xfatal-warnings")
+)

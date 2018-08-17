@@ -40,7 +40,7 @@ class AppServerSpec
       (for {
         httpClient <- httpClientIO
         itemRequest = ItemRequest("name", 1.99, "category")
-        req = Request[IO](Method.POST, uri("items"))
+        req = Request[IO](Method.POST, uri("items").withQueryParam("sort_by", "-updated_at,name"))
           .withBody(itemRequest)
         item <- httpClient.expect[Item](req)
         items <- httpClient

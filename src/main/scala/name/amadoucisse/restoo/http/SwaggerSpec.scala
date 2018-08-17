@@ -9,7 +9,6 @@ object SwaggerSpec {
 
   val ApiVersion = "v1"
 
-  // TODO: Use Rho
   def swaggerSpec(swaggerConf: SwaggerConf): Json = obj(
     "swagger" -> fromString("2.0"),
     "info" -> obj(
@@ -47,10 +46,18 @@ object SwaggerSpec {
     "parameters" -> arr(
       obj(
         "in" -> fromString("query"),
+        "name" -> fromString("sort_by"),
+        "description" -> fromString(
+          "Optional comma-separated list of field names to sort by. Prefix a name with `-` or `+` for the corresponding order. No prefix defaults to ascending order."),
+        "type" -> fromString("string"),
+      ),
+      obj(
+        "in" -> fromString("query"),
         "name" -> fromString("category"),
         "description" -> fromString("Optional category."),
         "type" -> fromString("string"),
-      )),
+      ),
+    ),
     "responses" -> obj(
       "200" -> obj(
         "description" -> fromString("Success"),

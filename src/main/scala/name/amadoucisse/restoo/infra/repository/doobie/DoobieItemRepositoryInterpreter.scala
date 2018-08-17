@@ -2,7 +2,7 @@ package name.amadoucisse.restoo
 package infra
 package repository.doobie
 
-import cats.Monad
+import cats._
 import cats.data.EitherT
 import cats.implicits._
 import doobie._
@@ -10,6 +10,7 @@ import doobie.implicits._
 import doobie.postgres._
 import domain.{AppError, OccurredAt}
 import domain.items._
+import http.{OrderBy, SortBy}
 
 private object ItemSQL extends SQLCommon {
 
@@ -56,7 +57,9 @@ private object ItemSQL extends SQLCommon {
     DELETE FROM items WHERE id = $itemId
   """.update
 
-  def selectAll(category: Option[Category]): Query0[Item] = (sql"""
+  def selectAll(category: Option[Category], sort: Seq[SortBy]): Query0[Item] = {
+
+    val baseSQL = sql"""
     SELECT
       name,
       price_in_cents,
@@ -65,7 +68,21 @@ private object ItemSQL extends SQLCommon {
       updated_at,
       id
     FROM items
-    """ ++ Fragments.whereAndOpt(category.map(c => fr"category = $c"))).query
+    """
+
+    val conds = Fragments.whereAndOpt(category.map(c => fr"category = $c"))
+
+    def getOrderBySQL(orderBy: SortBy) = orderBy match {
+      case SortBy(name, OrderBy.Ascending) => Fragment.const(s"$name ASC")
+      case SortBy(name, OrderBy.Descending) => Fragment.const(s"$name DESC")
+    }
+
+    val orderBy =
+      if (sort.isEmpty) Fragment.empty
+      else fr"ORDER BY" ++ sort.toList.map(getOrderBySQL).intercalate(fr",")
+
+    (baseSQL ++ conds ++ orderBy).query
+  }
 }
 
 final class DoobieItemRepositoryInterpreter[F[_]: Monad](val xa: Transactor[F])
@@ -114,8 +131,8 @@ final class DoobieItemRepositoryInterpreter[F[_]: Monad](val xa: Transactor[F])
   def delete(itemId: ItemId): F[Unit] =
     ItemSQL.delete(itemId).run.transact(xa).void
 
-  def list(category: Option[Category]): fs2.Stream[F, Item] =
-    ItemSQL.selectAll(category).stream.transact(xa)
+  def list(category: Option[Category], orderBy: Seq[SortBy]): fs2.Stream[F, Item] =
+    ItemSQL.selectAll(category, orderBy).stream.transact(xa)
 }
 
 object DoobieItemRepositoryInterpreter {

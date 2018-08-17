@@ -9,6 +9,7 @@ import cats.data.EitherT
 import cats.implicits._
 import domain.items._
 import domain.AppError
+import http.SortBy
 
 import scala.collection.concurrent.TrieMap
 
@@ -50,14 +51,15 @@ final class ItemRepositoryInMemoryInterpreter[F[_]: Monad] extends ItemRepositor
     ().pure[F]
   }
 
-  def list(category: Option[Category]): fs2.Stream[F, Item] = fs2.Stream.emits {
-    val filtered = category match {
-      case Some(c) => cache.values.filter(_.category == c)
-      case None => cache.values
-    }
+  def list(category: Option[Category], orderBy: Seq[SortBy]): fs2.Stream[F, Item] =
+    fs2.Stream.emits {
+      val filtered = category match {
+        case Some(c) => cache.values.filter(_.category == c)
+        case None => cache.values
+      }
 
-    filtered.toVector
-  }
+      filtered.toVector
+    }
 }
 
 object ItemRepositoryInMemoryInterpreter {

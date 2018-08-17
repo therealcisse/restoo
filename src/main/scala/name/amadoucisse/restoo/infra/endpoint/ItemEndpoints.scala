@@ -15,7 +15,7 @@ import domain._
 import domain.items._
 import domain.entries._
 import config.SwaggerConf
-import http.{HttpErrorHandler, SwaggerSpec}
+import http.{HttpErrorHandler, OrderBy, SortBy, SwaggerSpec}
 import service.{ItemService, StockService}
 import utils.Validator
 
@@ -70,14 +70,24 @@ final class ItemEndpoints[F[_]: Effect](implicit httpErrorHandler: HttpErrorHand
   object OptionalCategoryQueryParamMatcher
       extends OptionalQueryParamDecoderMatcher[Category]("category")
 
+  implicit val orderByQueryParamDecoder: QueryParamDecoder[Seq[SortBy]] =
+    QueryParamDecoder[String].map(OrderBy.fromString)
+
+  object OptionalOrderByQueryParamMatcher
+      extends OptionalQueryParamDecoderMatcher[Seq[SortBy]]("sort_by")
+
   private def listEndpoint(itemService: ItemService[F]): HttpService[F] =
     HttpService[F] {
-      case GET -> Root :? OptionalCategoryQueryParamMatcher(maybeCategory) =>
+      case GET -> Root :? OptionalCategoryQueryParamMatcher(maybeCategory) :? OptionalOrderByQueryParamMatcher(
+            maybeOrderBy) =>
+        val items = itemService
+          .list(maybeCategory, maybeOrderBy.getOrElse(Nil))
+
         Ok(
-          fs2.Stream("[") ++ itemService
-            .list(maybeCategory)
-            .map(_.asJson.noSpaces)
-            .intersperse(",") ++ fs2
+          fs2.Stream("[") ++
+            items
+              .map(_.asJson.noSpaces)
+              .intersperse(",") ++ fs2
             .Stream("]"))
     }
 
