@@ -10,6 +10,7 @@ import repository.inmemory.{EntryRepositoryInMemoryInterpreter, ItemRepositoryIn
 import cats.effect._
 import io.circe.generic.auto._
 import io.circe.syntax._
+import io.circe.literal._
 import io.circe.Json
 import http.{ApiResponseCodes, HttpErrorHandler}
 import utils.Validator
@@ -171,6 +172,8 @@ class ItemEndpointsSpec
 
     val item = ItemEndpoints.ItemRequest(name = "", price = -99.99, category = "")
 
+    implicit val itemDecoder: EntityDecoder[IO, Item] = jsonOf
+
     (for {
       request <- Request[IO](Method.POST, Uri.uri("/")).withBody(item.asJson)
       response <- itemHttpService
@@ -191,6 +194,59 @@ class ItemEndpointsSpec
           errors.size shouldEqual 3
       }
     }).unsafeRunSync
+
+    (for {
+      createRequest <- Request[IO](Method.POST, Uri.uri("/"))
+        .withBody(
+          ItemEndpoints.ItemRequest(name = "Name", price = 99.99, category = "Category").asJson)
+      createResponse <- itemHttpService
+        .run(createRequest)
+        .getOrElse(fail(s"Request was not handled: $createRequest"))
+      createdItem <- createResponse.as[Item]
+
+      id = createdItem.id.map(_.value.toString).get
+
+      request <- Request[IO](Method.PUT, Uri.unsafeFromString("/" + id)).withBody(item.asJson)
+      response <- itemHttpService
+        .run(request)
+        .getOrElse(fail(s"Request was not handled: $request"))
+
+      _ = response.status shouldEqual UnprocessableEntity
+
+      responseEntity = response.as[Json].unsafeRunSync().hcursor
+      _ = responseEntity.get[String]("code") shouldEqual Right(ApiResponseCodes.VALIDATION_FAILED)
+      _ = responseEntity.get[String]("message") shouldEqual Right("Validation failed")
+      _ = responseEntity.get[String]("type") shouldEqual Right("FieldErrors")
+      _ = responseEntity.get[Vector[Validator.FieldError]]("errors") match {
+        case Left(failure) => fail(failure.message)
+        case Right(errors) =>
+          errors.size shouldEqual 3
+      }
+
+      patches = Vector(
+        json"""{"op":"replace","path":"/name","value":${item.name}}""",
+        json"""{"op":"replace","path":"/price","value":${item.price}}""",
+        json"""{"op":"replace","path":"/category","value":${item.category}}""",
+      )
+      request <- Request[IO](Method.PATCH, Uri.unsafeFromString("/" + id))
+        .withBody(patches.asJson)
+      response <- itemHttpService
+        .run(request)
+        .getOrElse(fail(s"Request was not handled: $request"))
+
+      _ = response.status shouldEqual UnprocessableEntity
+
+      responseEntity = response.as[Json].unsafeRunSync().hcursor
+      _ = responseEntity.get[String]("code") shouldEqual Right(ApiResponseCodes.VALIDATION_FAILED)
+      _ = responseEntity.get[String]("message") shouldEqual Right("Validation failed")
+      _ = responseEntity.get[String]("type") shouldEqual Right("FieldErrors")
+      _ = responseEntity.get[Vector[Validator.FieldError]]("errors") match {
+        case Left(failure) => fail(failure.message)
+        case Right(errors) =>
+          errors.size shouldEqual 3
+      }
+
+    } yield {}).unsafeRunSync
 
   }
 
@@ -234,6 +290,88 @@ class ItemEndpointsSpec
       updatedItem.name.value shouldEqual item.name.reverse
       createdItem.id shouldEqual updatedItem.id
     }).unsafeRunSync
+
+  }
+
+  test("patch item") {
+
+    val itemRepo = ItemRepositoryInMemoryInterpreter[IO]
+    val itemService = ItemService(itemRepo)
+
+    val entryRepo = EntryRepositoryInMemoryInterpreter[IO]
+    val stockService = StockService(entryRepo, itemRepo)
+
+    val swaggerConf = SwaggerConf("localhost", Nil)
+
+    val itemHttpService = ItemEndpoints.endpoints[IO](itemService, stockService, swaggerConf)
+
+    implicit val itemDecoder: EntityDecoder[IO, Item] = jsonOf
+
+    val item =
+      ItemEndpoints.ItemRequest(name = "Cheese Burger", price = 99.99, category = "Food & Drinks")
+
+    (for {
+      createRequest <- Request[IO](Method.POST, Uri.uri("/")).withBody(item.asJson)
+      createResponse <- itemHttpService
+        .run(createRequest)
+        .getOrElse(fail(s"Request was not handled: $createRequest"))
+      createdItem <- createResponse.as[Item]
+
+      id = createdItem.id.map(_.value.toString).get
+
+      // patch name
+      newName = "Cake"
+      patchName = json"""{"op":"replace","path":"/name","value":${newName}}"""
+      patchRequest <- Request[IO](Method.PATCH, Uri.unsafeFromString("/" + id))
+        .withBody(patchName)
+      patchResponse <- itemHttpService
+        .run(patchRequest)
+        .getOrElse(fail(s"Request was not handled: $patchRequest"))
+      _ = patchResponse.status shouldEqual Ok
+      patchedItem <- patchResponse.as[Item]
+      _ = patchedItem.name shouldEqual Name(newName)
+
+      // patch price
+      newPrice = 50.99
+      patchPrice = json"""{"op":"replace","path":"/price","value":${newPrice}}"""
+      patchRequest <- Request[IO](Method.PATCH, Uri.unsafeFromString("/" + id))
+        .withBody(patchPrice)
+      patchResponse <- itemHttpService
+        .run(patchRequest)
+        .getOrElse(fail(s"Request was not handled: $patchRequest"))
+      _ = patchResponse.status shouldEqual Ok
+      patchedItem <- patchResponse.as[Item]
+      _ = patchedItem.priceInCents shouldEqual Cents(newPrice)
+
+      // patch category
+      newCategory = "Dessert"
+      patchCategory = json"""{"op":"replace","path":"/category","value":${newCategory}}"""
+      patchRequest <- Request[IO](Method.PATCH, Uri.unsafeFromString("/" + id))
+        .withBody(patchCategory)
+      patchResponse <- itemHttpService
+        .run(patchRequest)
+        .getOrElse(fail(s"Request was not handled: $patchRequest"))
+      _ = patchResponse.status shouldEqual Ok
+      patchedItem <- patchResponse.as[Item]
+      _ = patchedItem.category shouldEqual Category(newCategory)
+
+      // Revert all changes
+      patches = Vector(
+        json"""{"op":"replace","path":"/name","value":${item.name}}""",
+        json"""{"op":"replace","path":"/price","value":${item.price}}""",
+        json"""{"op":"replace","path":"/category","value":${item.category}}""",
+      )
+      patchRequest <- Request[IO](Method.PATCH, Uri.unsafeFromString("/" + id))
+        .withBody(patches.asJson)
+      patchResponse <- itemHttpService
+        .run(patchRequest)
+        .getOrElse(fail(s"Request was not handled: $patchRequest"))
+      _ = patchResponse.status shouldEqual Ok
+      patchedItem <- patchResponse.as[Item]
+      _ = patchedItem.name shouldEqual Name(item.name)
+      _ = patchedItem.priceInCents shouldEqual Cents(item.price)
+      _ = patchedItem.category shouldEqual Category(item.category)
+    } yield {}).unsafeRunSync
 
   }
 

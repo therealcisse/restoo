@@ -34,6 +34,10 @@ final class HttpErrorHandler[F[_]: Monad] extends Http4sDsl[F] {
 
     case ItemOutOfStock =>
       Conflict(ApiResponse("ItemOutOfStock", ApiResponseCodes.CONFLICT, "Item out of stock"))
+
+    case InvalidJsonPatch(message) =>
+      Conflict(ApiResponse("InvalidJsonPatch", ApiResponseCodes.VALIDATION_FAILED, message))
+
   }
 
   private def ApiResponse(`type`: String, code: String, message: String) = Json.obj(

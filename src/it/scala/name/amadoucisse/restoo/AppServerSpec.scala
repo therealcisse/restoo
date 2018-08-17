@@ -5,6 +5,7 @@ import domain.items._
 import domain.entries._
 import infra.endpoint.ItemEndpoints.{ItemRequest, StockRequest}
 import io.circe.generic.auto._
+import io.circe.literal._
 import org.http4s.circe._
 import org.scalatest.concurrent.{IntegrationPatience, ScalaFutures}
 import org.scalatest.{BeforeAndAfterAll, FunSpec, Matchers}
@@ -81,6 +82,39 @@ class AppServerSpec
         )
         retrieved <- httpClient.expect[Option[Item]](uri(s"items/${item.id.value.value}"))
         _ = retrieved.value shouldBe updatedItem
+
+        // change price
+        newPrice = 3.99
+        patchPrice = json"""{"op":"replace","path":"/price","value":${newPrice}}"""
+        patchedItem <- httpClient.expect[Item](
+          Request[IO](Method.PATCH, uri(s"items/${item.id.value.value}"))
+            .withBody(patchPrice)
+          )
+        _ = patchedItem.priceInCents shouldEqual Cents(newPrice)
+        retrieved <- httpClient.expect[Option[Item]](uri(s"items/${item.id.value.value}"))
+        _ = retrieved.value shouldBe patchedItem
+
+        // change name
+        newName = "Cake"
+        patchName = json"""{"op":"replace","path":"/name","value":${newName}}"""
+        patchedItem <- httpClient.expect[Item](
+          Request[IO](Method.PATCH, uri(s"items/${item.id.value.value}"))
+            .withBody(patchName)
+          )
+        _ = patchedItem.name shouldEqual Name(newName)
+        retrieved <- httpClient.expect[Option[Item]](uri(s"items/${item.id.value.value}"))
+        _ = retrieved.value shouldBe patchedItem
+
+        // change category
+        newCategory = "Dessert"
+        patchCategory = json"""{"op":"replace","path":"/category","value":${newCategory}}"""
+        patchedItem <- httpClient.expect[Item](
+          Request[IO](Method.PATCH, uri(s"items/${item.id.value.value}"))
+            .withBody(patchCategory)
+          )
+        _ = patchedItem.category shouldEqual Category(newCategory)
+        retrieved <- httpClient.expect[Option[Item]](uri(s"items/${item.id.value.value}"))
+        _ = retrieved.value shouldBe patchedItem
 
         stockRequest = StockRequest(delta = 10)
         stock <- httpClient.expect[Stock](

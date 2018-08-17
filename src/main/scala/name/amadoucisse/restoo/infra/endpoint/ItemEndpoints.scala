@@ -15,7 +15,7 @@ import domain._
 import domain.items._
 import domain.entries._
 import config.SwaggerConf
-import http.{HttpErrorHandler, OrderBy, SortBy, SwaggerSpec}
+import http.{HttpErrorHandler, JsonPatch, OrderBy, SortBy, SwaggerSpec}
 import service.{ItemService, StockService}
 import utils.Validator
 
@@ -26,6 +26,8 @@ final class ItemEndpoints[F[_]: Effect](implicit httpErrorHandler: HttpErrorHand
   implicit val itemRequestDecoder: EntityDecoder[F, ItemRequest] = jsonOf
 
   implicit val stockRequestDecoder: EntityDecoder[F, StockRequest] = jsonOf
+
+  implicit val jsonPatchDecoder: EntityDecoder[F, Vector[JsonPatch]] = jsonOf
 
   private def createEndpoint(itemService: ItemService[F]): HttpService[F] =
     HttpService[F] {
@@ -50,6 +52,42 @@ final class ItemEndpoints[F[_]: Effect](implicit httpErrorHandler: HttpErrorHand
       case req @ PUT -> Root / ItemId(id) =>
         val action = for {
           itemRequest <- EitherT.right[AppError](req.as[ItemRequest])
+
+          item <- EitherT.fromEither[F](itemRequest.validate)
+
+          updated = item.copy(id = id.some)
+          result <- EitherT(itemService.update(updated))
+
+        } yield result
+
+        for {
+          item <- action.value
+          resp <- item.fold(httpErrorHandler.handle, item => Ok(item.asJson))
+        } yield resp
+    }
+
+  private def patchEndpoint(itemService: ItemService[F]): HttpService[F] =
+    HttpService[F] {
+      case req @ PATCH -> Root / ItemId(id) =>
+        val action = for {
+
+          // Accepts object or array of objects
+          patches <- EitherT
+            .right[AppError](req.as[Vector[JsonPatch]])
+            .ensureOr(_ => AppError.invalidJsonPatch("Invalid patch"))(_.nonEmpty)
+
+          item <- EitherT(itemService.getItem(id))
+
+          itemRequest <- EitherT.fromEither[F] {
+            val unitR = ItemRequest.fromItem(item)
+
+            patches
+              .foldLeft(unitR.asJson) { (input, patch) =>
+                patch.applyOperation(input)
+              }
+              .as[ItemRequest]
+              .leftMap(r => AppError.invalidJsonPatch(r.message))
+          }
 
           item <- EitherT.fromEither[F](itemRequest.validate)
 
@@ -141,6 +179,7 @@ final class ItemEndpoints[F[_]: Effect](implicit httpErrorHandler: HttpErrorHand
       stockService: StockService[F],
       swaggerConf: SwaggerConf): HttpService[F] =
     createEndpoint(itemService) <+>
+      patchEndpoint(itemService) <+>
       updateEndpoint(itemService) <+>
       deleteItemEndpoint(itemService) <+>
       getItemEndpoint(itemService) <+>
@@ -176,6 +215,17 @@ object ItemEndpoints {
 
       item.leftMap(AppError.invalidEntity).toEither
     }
+  }
+
+  object ItemRequest {
+
+    def fromItem(item: Item) =
+      ItemRequest(
+        name = item.name.value,
+        price = item.priceInCents.toDouble,
+        category = item.category.value,
+      )
+
   }
 
   final case class StockRequest(delta: Int) extends AnyVal

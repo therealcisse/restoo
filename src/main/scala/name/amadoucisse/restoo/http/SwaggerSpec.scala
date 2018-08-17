@@ -29,6 +29,7 @@ object SwaggerSpec {
     "/{itemId}" -> obj(
       "get" -> itemGet(),
       "put" -> itemPut(),
+      "patch" -> itemPatch(),
       "delete" -> itemDelete(),
     ),
     "/{itemId}/stocks" -> obj(
@@ -163,6 +164,56 @@ object SwaggerSpec {
           "$ref" -> fromString("#/definitions/ItemRequest")
         )
       )
+    ),
+    "responses" -> obj(
+      "200" -> obj(
+        "description" -> fromString("Success"),
+        "schema" -> obj(
+          "$ref" -> fromString("#/definitions/Item")
+        ),
+      ),
+      "404" -> obj(
+        "description" -> fromString("Item not found"),
+        "schema" -> obj(
+          "$ref" -> fromString("#/definitions/ApiResponseWrapper")
+        ),
+      ),
+      "422" -> obj(
+        "description" -> fromString("Validation error"),
+        "schema" -> obj(
+          "$ref" -> fromString("#/definitions/FieldErrors"),
+        ),
+      ),
+    ),
+  )
+
+  private def itemPatch() = obj(
+    "summary" -> fromString("Patches an item"),
+    "description" -> fromString(""),
+    "operationId" -> fromString("patchItem"),
+    "consumes" -> arr(fromString("application/json")),
+    "produces" -> arr(fromString("application/json")),
+    "parameters" -> arr(
+      obj(
+        "in" -> fromString("path"),
+        "name" -> fromString("itemId"),
+        "description" -> fromString("Id of the item."),
+        "type" -> fromString("integer"),
+        "format" -> fromString("int32"),
+        "required" -> fromBoolean(true),
+      ),
+      obj(
+        "in" -> fromString("body"),
+        "name" -> fromString("body"),
+        "description" -> fromString("Json patch object (rfc6902)."),
+        "required" -> fromBoolean(true),
+        "schema" -> obj(
+          "type" -> fromString("array"),
+          "items" -> obj(
+            "$ref" -> fromString("#/definitions/JsonPatch")
+          ),
+        ),
+      ),
     ),
     "responses" -> obj(
       "200" -> obj(
@@ -447,6 +498,32 @@ object SwaggerSpec {
           "readOnly" -> fromBoolean(true),
         ),
       ),
+    ),
+    "Op" -> obj(
+      "type" -> fromString("string"),
+      "enum" -> arr(
+        fromString("replace"),
+      )
+    ),
+    "JsonPatch" -> obj(
+      "type" -> fromString("object"),
+      "required" -> arr(
+        fromString("op"),
+        fromString("path"),
+        fromString("value"),
+      ),
+      "properties" -> obj(
+        "op" -> obj(
+          "$ref" -> fromString("#/definitions/Op"),
+        ),
+        "path" -> obj(
+          "type" -> fromString("string"),
+          "minLength" -> fromInt(1),
+        ),
+        "value" -> obj(
+          "type" -> fromString("string"),
+        ),
+      )
     ),
   )
 }

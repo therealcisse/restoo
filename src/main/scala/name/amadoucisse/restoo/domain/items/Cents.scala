@@ -4,7 +4,9 @@ package items
 
 import io.circe._
 
-final case class Cents private (value: Int) extends AnyVal
+final case class Cents private (value: Int) extends AnyVal {
+  def toDouble = value.toDouble * 100.0d
+}
 
 object Cents {
   implicit val encoder: Encoder[Cents] = Encoder.encodeInt.contramap[Cents](_.value)

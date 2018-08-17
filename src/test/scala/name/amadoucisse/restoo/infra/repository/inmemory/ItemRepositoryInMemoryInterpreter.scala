@@ -32,7 +32,8 @@ final class ItemRepositoryInMemoryInterpreter[F[_]: Monad] extends ItemRepositor
     EitherT
       .fromOption[F](item.id, AppError.itemNotFound)
       .subflatMap { id =>
-        if (cache.exists(_._2.name == item.name)) AppError.duplicateItem(item.name).asLeft[Item]
+        if (cache.exists(it => !item.id.contains(it._1) && it._2.name == item.name))
+          AppError.duplicateItem(item.name).asLeft[Item]
         else {
           cache.update(id, item)
           item.asRight[AppError]
