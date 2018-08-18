@@ -341,7 +341,7 @@ class ItemEndpointsSpec
         .getOrElse(fail(s"Request was not handled: $patchRequest"))
       _ = patchResponse.status shouldEqual Ok
       patchedItem <- patchResponse.as[Item]
-      _ = patchedItem.priceInCents shouldEqual Cents(newPrice)
+      _ = patchedItem.priceInCents shouldEqual Cents.fromStandardAmount(newPrice)
 
       // patch category
       newCategory = "Dessert"
@@ -369,7 +369,7 @@ class ItemEndpointsSpec
       _ = patchResponse.status shouldEqual Ok
       patchedItem <- patchResponse.as[Item]
       _ = patchedItem.name shouldEqual Name(item.name)
-      _ = patchedItem.priceInCents shouldEqual Cents(item.price)
+      _ = patchedItem.priceInCents shouldEqual Cents.fromStandardAmount(item.price)
       _ = patchedItem.category shouldEqual Category(item.category)
     } yield {}).unsafeRunSync
 

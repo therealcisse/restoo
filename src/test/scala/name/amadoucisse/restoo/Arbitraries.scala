@@ -28,7 +28,7 @@ trait Arbitraries {
     } yield
       Item(
         Name(name),
-        Cents(price),
+        Cents.fromStandardAmount(price),
         Category(category),
         OccurredAt(createdAt),
         OccurredAt(updatedAt),

@@ -3,14 +3,15 @@ package domain
 package items
 
 import io.circe._
+import io.circe.generic.extras.semiauto._
 
-final case class Cents private (value: Int) extends AnyVal {
-  def toDouble = value.toDouble * 100.0d
+final case class Cents private[Cents] (value: Int) extends AnyVal {
+  def toDouble = value.toDouble / 100.0d
 }
 
 object Cents {
-  implicit val encoder: Encoder[Cents] = Encoder.encodeInt.contramap[Cents](_.value)
-  implicit val decoder: Decoder[Cents] = Decoder.decodeInt.map(Cents(_))
+  implicit val encoder: Encoder[Cents] = deriveUnwrappedEncoder
+  implicit val decoder: Decoder[Cents] = deriveUnwrappedDecoder
 
-  def apply(value: Double): Cents = Cents((value * 100).toInt)
+  def fromStandardAmount(amount: Double): Cents = Cents((amount * 100.0d).toInt)
 }

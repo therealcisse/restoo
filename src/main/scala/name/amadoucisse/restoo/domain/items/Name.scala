@@ -3,11 +3,12 @@ package domain
 package items
 
 import io.circe._
+import io.circe.generic.extras.semiauto._
 
 final case class Name(value: String) extends AnyVal
 
 object Name {
-  implicit val encoder: Encoder[Name] = Encoder.encodeString.contramap[Name](_.value)
-  implicit val decoder: Decoder[Name] = Decoder.decodeString.map(Name(_))
+  implicit val encoder: Encoder[Name] = deriveUnwrappedEncoder
+  implicit val decoder: Decoder[Name] = deriveUnwrappedDecoder
 
 }

@@ -208,7 +208,7 @@ object ItemEndpoints {
         (name, price, category) =>
           Item(
             name = Name(name),
-            priceInCents = Cents(price),
+            priceInCents = Cents.fromStandardAmount(price),
             category = Category(category),
           )
       }

@@ -90,7 +90,7 @@ class AppServerSpec
           Request[IO](Method.PATCH, uri(s"items/${item.id.value.value}"))
             .withBody(patchPrice)
           )
-        _ = patchedItem.priceInCents shouldEqual Cents(newPrice)
+        _ = patchedItem.priceInCents shouldEqual Cents.fromStandardAmount(newPrice)
         retrieved <- httpClient.expect[Option[Item]](uri(s"items/${item.id.value.value}"))
         _ = retrieved.value shouldBe patchedItem
 

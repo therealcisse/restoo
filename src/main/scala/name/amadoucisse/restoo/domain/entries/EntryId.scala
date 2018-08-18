@@ -3,11 +3,12 @@ package domain
 package entries
 
 import io.circe._
+import io.circe.generic.extras.semiauto._
 
 final case class EntryId(value: Int) extends AnyVal
 
 object EntryId {
-  implicit val encoder: Encoder[EntryId] = Encoder.encodeInt.contramap[EntryId](_.value)
-  implicit val decoder: Decoder[EntryId] = Decoder.decodeInt.map(EntryId(_))
+  implicit val encoder: Encoder[EntryId] = deriveUnwrappedEncoder
+  implicit val decoder: Decoder[EntryId] = deriveUnwrappedDecoder
 
 }
