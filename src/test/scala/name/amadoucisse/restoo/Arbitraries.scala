@@ -2,12 +2,13 @@ package name.amadoucisse.restoo
 
 import java.time.Instant
 
+import eu.timepit.refined.scalacheck.numeric._
+import eu.timepit.refined.types.numeric.NonNegDouble
+import domain._
+import domain.entries._
+import domain.items._
 import org.scalacheck._
 import org.scalacheck.Arbitrary.arbitrary
-
-import domain._
-import domain.items._
-import domain.entries._
 
 trait Arbitraries {
 
@@ -20,7 +21,7 @@ trait Arbitraries {
   implicit val item: Arbitrary[Item] = Arbitrary[Item] {
     for {
       name <- arbitrary[String]
-      price <- arbitrary[Double]
+      price <- arbitrary[NonNegDouble]
       category <- arbitrary[String]
       createdAt <- arbitrary[Instant]
       updatedAt <- arbitrary[Instant]

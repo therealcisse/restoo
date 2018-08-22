@@ -3,10 +3,10 @@ package config
 
 import cats.effect.Sync
 import cats.implicits._
-import pureconfig.error.ConfigReaderException
+import eu.timepit.refined.types.string.NonEmptyString
 
 final case class AppConf(
-    namespace: String,
+    namespace: NonEmptyString,
     db: DatabaseConf,
     server: ServerConf,
     swagger: SwaggerConf,
@@ -15,6 +15,9 @@ final case class AppConf(
 object AppConf {
 
   import pureconfig._
+  import pureconfig.error.ConfigReaderException
+
+  import eu.timepit.refined.pureconfig._
 
   /**
    * Loads the pet store config using PureConfig.  If configuration is invalid we will

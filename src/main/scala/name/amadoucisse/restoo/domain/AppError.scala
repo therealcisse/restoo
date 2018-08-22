@@ -3,7 +3,7 @@ package domain
 
 import cats.data.NonEmptyList
 import items.{Item, Name}
-import utils.Validator
+import utils.Validation
 
 sealed abstract class AppError extends Product with Serializable
 
@@ -15,13 +15,13 @@ object AppError {
 
   case object ItemOutOfStock extends AppError
 
-  final case class InvalidEntity(errors: NonEmptyList[Validator.FieldError]) extends AppError
+  final case class InvalidEntity(errors: NonEmptyList[Validation.FieldError]) extends AppError
 
   def invalidJsonPatch(message: String): AppError = InvalidJsonPatch(message)
   def itemAlreadyExists(item: Item): AppError = ItemAlreadyExists(item)
   def duplicateItem(name: Name): AppError = DuplicateItem(name)
   def itemNotFound: AppError = ItemNotFound
   def itemOutOfStock: AppError = ItemOutOfStock
-  def invalidEntity(errors: NonEmptyList[Validator.FieldError]): AppError =
+  def invalidEntity(errors: NonEmptyList[Validation.FieldError]): AppError =
     InvalidEntity(errors)
 }

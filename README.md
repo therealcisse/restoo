@@ -17,7 +17,7 @@ $ sbt run
 
 Open `http://localhost:8080` in your browser to access the swagger UI page.
 
-By default, the app will start listening on localhost port 8080. You can change this behavoir by setting any of the ENV variables `RESTOO_SERVER_ADDRESS` or `RESTOO_SERVER_PORT`.
+By default, the app will start listening on `0.0.0.0` port 8080. You can change the port by defining the ENV variable `RESTOO_SERVER_PORT`.
 
 The following command will start the server on localhost port 9009:
 

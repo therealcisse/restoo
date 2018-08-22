@@ -9,8 +9,8 @@ import io.circe.generic.extras.semiauto._
 final case class OccurredAt(value: Instant) extends AnyVal
 
 object OccurredAt {
-  implicit val encoder: Encoder[OccurredAt] = deriveUnwrappedEncoder
-  implicit val decoder: Decoder[OccurredAt] = deriveUnwrappedDecoder
+  implicit val jsonEncoder: Encoder[OccurredAt] = deriveUnwrappedEncoder
+  implicit val jsonDecoder: Decoder[OccurredAt] = deriveUnwrappedDecoder
 
   def now: OccurredAt = OccurredAt(Instant.now)
 }

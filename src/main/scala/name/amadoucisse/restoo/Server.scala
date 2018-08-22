@@ -15,6 +15,8 @@ import io.opencensus.scala.http4s.TracingMiddleware
 import io.opencensus.scala.http.ServiceData
 import http.{HttpErrorHandler, SwaggerSpec}
 
+import eu.timepit.refined.auto._
+
 import scala.concurrent.ExecutionContext.Implicits.global
 
 object Server extends ServerStream[IO]
@@ -49,7 +51,7 @@ class ServerStream[F[_]: Effect] extends StreamApp[F] {
           )))
 
       exitCode <- BlazeBuilder[F]
-        .bindHttp(conf.server.port, conf.server.address)
+        .bindHttp(conf.server.port, "0.0.0.0")
         .mountService(Index.endpoints)
         .mountService(service, s"/api/${SwaggerSpec.ApiVersion}/items")
         .mountService(prometheusExportService.service)

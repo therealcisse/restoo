@@ -16,6 +16,20 @@ final case class Item(
 )
 
 object Item {
-  implicit def encoder: Encoder[Item] = deriveEncoder
-  implicit def decoder: Decoder[Item] = deriveDecoder
+  implicit def jsonEncoder: Encoder[Item] = deriveEncoder
+  implicit def jsonDecoder: Decoder[Item] = deriveDecoder
+
+  import eu.timepit.refined.W
+  import eu.timepit.refined.generic.Equal
+  import eu.timepit.refined.boolean.Or
+
+  type SortableField = Equal[W.`"name"`.T] Or
+    Equal[W.`"price"`.T] Or
+    Equal[W.`"category"`.T] Or
+    Equal[W.`"created_at"`.T] Or
+    Equal[W.`"updated_at"`.T]
+
+  type PatchableField = Equal[W.`"/name"`.T] Or
+    Equal[W.`"/price"`.T] Or
+    Equal[W.`"/category"`.T]
 }

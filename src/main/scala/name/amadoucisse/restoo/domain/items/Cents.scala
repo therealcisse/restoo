@@ -5,13 +5,16 @@ package items
 import io.circe._
 import io.circe.generic.extras.semiauto._
 
+import eu.timepit.refined.auto._
+import eu.timepit.refined.types.numeric.NonNegDouble
+
 final case class Cents private[Cents] (value: Int) extends AnyVal {
-  def toDouble = value.toDouble / 100.0d
+  def toDouble: Double = value.toDouble / 100.0d
 }
 
 object Cents {
-  implicit val encoder: Encoder[Cents] = deriveUnwrappedEncoder
-  implicit val decoder: Decoder[Cents] = deriveUnwrappedDecoder
+  implicit val jsonEncoder: Encoder[Cents] = deriveUnwrappedEncoder
+  implicit val jsonDecoder: Decoder[Cents] = deriveUnwrappedDecoder
 
-  def fromStandardAmount(amount: Double): Cents = Cents((amount * 100.0d).toInt)
+  def fromStandardAmount(amount: NonNegDouble): Cents = Cents((amount * 100.0d).toInt)
 }

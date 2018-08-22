@@ -17,7 +17,10 @@ import domain.entries._
 import config.SwaggerConf
 import http.{HttpErrorHandler, JsonPatch, OrderBy, SortBy, SwaggerSpec}
 import service.{ItemService, StockService}
-import utils.Validator
+import utils.Validation
+
+import eu.timepit.refined._
+import eu.timepit.refined.auto._
 
 final class ItemEndpoints[F[_]: Effect](implicit httpErrorHandler: HttpErrorHandler[F])
     extends Http4sDsl[F] {
@@ -66,15 +69,29 @@ final class ItemEndpoints[F[_]: Effect](implicit httpErrorHandler: HttpErrorHand
         } yield resp
     }
 
-  private def patchEndpoint(itemService: ItemService[F]): HttpService[F] =
+  private def patchEndpoint(itemService: ItemService[F]): HttpService[F] = {
+
+    @annotation.tailrec
+    def isValidJsonPatchForItem(patches: Vector[JsonPatch]): Boolean =
+      patches match {
+        case xs :+ s =>
+          refineV[Item.PatchableField](s.path) match {
+            case Right(_) => isValidJsonPatchForItem(xs)
+            case Left(_) => false
+          }
+
+        case _ => true
+      }
+
     HttpService[F] {
       case req @ PATCH -> Root / ItemId(id) =>
         val action = for {
 
-          // Accepts object or array of objects
           patches <- EitherT
             .right[AppError](req.as[Vector[JsonPatch]])
-            .ensureOr(_ => AppError.invalidJsonPatch("Invalid patch"))(_.nonEmpty)
+            .ensureOr(_ => AppError.invalidJsonPatch("Invalid patch")) { patches =>
+              patches.nonEmpty && isValidJsonPatchForItem(patches)
+            }
 
           item <- EitherT(itemService.getItem(id))
 
@@ -101,33 +118,51 @@ final class ItemEndpoints[F[_]: Effect](implicit httpErrorHandler: HttpErrorHand
           resp <- item.fold(httpErrorHandler.handle, item => Ok(item.asJson))
         } yield resp
     }
+  }
 
-  implicit val categoryQueryParamDecoder: QueryParamDecoder[Category] =
-    QueryParamDecoder[String].map(Category(_))
+  private def listEndpoint(itemService: ItemService[F]): HttpService[F] = {
+    implicit val categoryQueryParamDecoder: QueryParamDecoder[Category] =
+      QueryParamDecoder[String].map(Category(_))
 
-  object OptionalCategoryQueryParamMatcher
-      extends OptionalQueryParamDecoderMatcher[Category]("category")
+    object OptionalCategoryQueryParamMatcher
+        extends OptionalQueryParamDecoderMatcher[Category]("category")
 
-  implicit val orderByQueryParamDecoder: QueryParamDecoder[Seq[SortBy]] =
-    QueryParamDecoder[String].map(OrderBy.fromString)
+    implicit val orderByQueryParamDecoder: QueryParamDecoder[List[SortBy]] =
+      QueryParamDecoder[String].map(OrderBy.fromString)
 
-  object OptionalOrderByQueryParamMatcher
-      extends OptionalQueryParamDecoderMatcher[Seq[SortBy]]("sort_by")
+    object OptionalOrderByQueryParamMatcher
+        extends OptionalQueryParamDecoderMatcher[List[SortBy]]("sort_by")
 
-  private def listEndpoint(itemService: ItemService[F]): HttpService[F] =
+    @annotation.tailrec
+    def isValidOrderByForItem(orderBy: Seq[SortBy]): Boolean =
+      orderBy match {
+        case s :: xs =>
+          refineV[Item.SortableField](s.name.value) match {
+            case Right(_) => isValidOrderByForItem(xs)
+            case Left(_) => false
+          }
+
+        case _ => true
+      }
+
     HttpService[F] {
       case GET -> Root :? OptionalCategoryQueryParamMatcher(maybeCategory) :? OptionalOrderByQueryParamMatcher(
             maybeOrderBy) =>
-        val items = itemService
-          .list(maybeCategory, maybeOrderBy.getOrElse(Nil))
+        val orderBy = maybeOrderBy.getOrElse(Nil)
 
-        Ok(
-          fs2.Stream("[") ++
-            items
-              .map(_.asJson.noSpaces)
-              .intersperse(",") ++ fs2
-            .Stream("]"))
+        if (isValidOrderByForItem(orderBy)) {
+          val items = itemService
+            .list(maybeCategory, orderBy)
+
+          Ok(
+            fs2.Stream("[") ++
+              items
+                .map(_.asJson.noSpaces)
+                .intersperse(",") ++ fs2.Stream("]"))
+        } else BadRequest()
+
     }
+  }
 
   private def deleteItemEndpoint(itemService: ItemService[F]): HttpService[F] =
     HttpService[F] {
@@ -197,20 +232,35 @@ object ItemEndpoints {
   )(implicit httpErrorHandler: HttpErrorHandler[F]): HttpService[F] =
     new ItemEndpoints[F].endpoints(itemService, stockService, swaggerConf)
 
-  final case class ItemRequest(name: String, price: Double, category: String) {
-    import Validator._
+  final case class ItemRequest(
+      name: String,
+      price: Double,
+      category: String,
+  ) {
 
     def validate: AppError Either Item = {
-      val item = (
-        validateNonEmpty(name, FieldError("item.name", "error.empty")),
-        validateNonNegative(price, FieldError("item.price", "error.negative")),
-        validateNonEmpty(category, FieldError("item.category", "error.empty"))).mapN {
-        (name, price, category) =>
-          Item(
-            name = Name(name),
-            priceInCents = Cents.fromStandardAmount(price),
-            category = Category(category),
-          )
+      import Validation._
+      import cats.data.ValidatedNel
+      import eu.timepit.refined.collection.NonEmpty
+      import eu.timepit.refined.numeric.NonNegative
+
+      @SuppressWarnings(Array("org.wartremover.warts.Any"))
+      val item: ValidatedNel[FieldError, Item] = (
+        refineV[NonEmpty](name)
+          .leftMap(_ => FieldError("item.name", "error.empty"))
+          .toValidatedNel,
+        refineV[NonNegative](price)
+          .leftMap(_ => FieldError("item.price", "error.negative"))
+          .toValidatedNel,
+        refineV[NonEmpty](category)
+          .leftMap(_ => FieldError("item.category", "error.empty"))
+          .toValidatedNel,
+      ).mapN { (name, price, category) =>
+        Item(
+          name = Name(name),
+          priceInCents = Cents.fromStandardAmount(price),
+          category = Category(category),
+        )
       }
 
       item.leftMap(AppError.invalidEntity).toEither

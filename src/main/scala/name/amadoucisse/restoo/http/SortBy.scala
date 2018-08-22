@@ -1,7 +1,9 @@
 package name.amadoucisse.restoo
 package http
 
-final case class SortBy(name: String, order: OrderBy.Order)
+import eu.timepit.refined.types.string.NonEmptyString
+
+final case class SortBy(name: NonEmptyString, order: OrderBy.Order)
 
 object OrderBy {
   sealed trait Order
@@ -9,18 +11,18 @@ object OrderBy {
   case object Ascending extends Order
   case object Descending extends Order
 
-  val SortByPattern = """^([\+-]?)([a-zA-Z_][a-zA-Z\d_]*)$""".r
+  private val SortByPattern = """^([\+-]?)([a-zA-Z_][a-zA-Z\d_]*)$""".r
 
-  def fromString(jv: String): Seq[SortBy] =
+  /*
+   * @param jv comma-separated list of strings optionally prefixed with `+` or `-`
+   */
+  def fromString(jv: String): List[SortBy] =
     jv.split(",")
+      .toList
       .collect {
         case SortByPattern("-", NonEmptyString(name)) => SortBy(name, Descending)
         case SortByPattern("+", NonEmptyString(name)) => SortBy(name, Ascending)
         case SortByPattern("", NonEmptyString(name)) => SortBy(name, Ascending)
       }
 
-}
-
-case object NonEmptyString {
-  def unapply(s: String) = if (s.isEmpty) None else Some(s)
 }

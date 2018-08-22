@@ -1,4 +1,6 @@
 package name.amadoucisse.restoo
 package config
 
-final case class SwaggerConf(host: String, schemes: Seq[String])
+import eu.timepit.refined.types.string.NonEmptyString
+
+final case class SwaggerConf(host: NonEmptyString, schemes: Seq[String])

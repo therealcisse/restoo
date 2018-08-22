@@ -4,6 +4,8 @@ package http
 import io.circe.Json
 import config.SwaggerConf
 
+import eu.timepit.refined.auto._
+
 object SwaggerSpec {
   import Json._
 

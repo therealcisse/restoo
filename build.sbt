@@ -23,6 +23,8 @@ val OpencensusHtt4sVersion   = "0.6.0"
 val OpencensusLoggingVersion = "0.15.0"
 val OpencensusZipkinVersion  = "0.15.0"
 
+val RefinedVersion = "0.9.2"
+
 libraryDependencies ++= Seq(
   "org.typelevel"           %% "cats-core"              % CatsVersion,
 
@@ -59,6 +61,10 @@ libraryDependencies ++= Seq(
   "com.github.sebruck"      %% "opencensus-scala-http4s"              % OpencensusHtt4sVersion,
   "io.opencensus"           % "opencensus-exporter-trace-logging"     % OpencensusLoggingVersion,
   "io.opencensus"           % "opencensus-exporter-trace-zipkin"      % OpencensusZipkinVersion,
+
+  "eu.timepit"              %% "refined"                              % RefinedVersion,
+  "eu.timepit"              %% "refined-scalacheck"                   % RefinedVersion,
+  "eu.timepit"              %% "refined-pureconfig"                   % RefinedVersion,
 )
 
 enablePlugins(ScalafmtPlugin, JavaAppPackaging, DockerComposePlugin, BuildInfoPlugin)

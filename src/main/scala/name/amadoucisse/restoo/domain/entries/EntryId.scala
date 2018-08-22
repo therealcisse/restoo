@@ -8,7 +8,7 @@ import io.circe.generic.extras.semiauto._
 final case class EntryId(value: Int) extends AnyVal
 
 object EntryId {
-  implicit val encoder: Encoder[EntryId] = deriveUnwrappedEncoder
-  implicit val decoder: Decoder[EntryId] = deriveUnwrappedDecoder
+  implicit val jsonEncoder: Encoder[EntryId] = deriveUnwrappedEncoder
+  implicit val jsonDecoder: Decoder[EntryId] = deriveUnwrappedDecoder
 
 }

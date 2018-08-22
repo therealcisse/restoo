@@ -11,6 +11,8 @@ import doobie.util.transactor.Transactor
 import domain.items.{Category, ItemId}
 import http.{OrderBy, SortBy}
 
+import eu.timepit.refined.auto._
+
 import Arbitraries.item
 
 class ItemQueryTypeCheckSpec extends FunSuite with Matchers with IOChecker {
@@ -39,5 +41,6 @@ class ItemQueryTypeCheckSpec extends FunSuite with Matchers with IOChecker {
         Seq(SortBy("name", OrderBy.Descending), SortBy("category", OrderBy.Ascending))))
     check(select(ItemId(1)))
     check(delete(ItemId(1)))
+    check(touch(ItemId(1)))
   }
 }

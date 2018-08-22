@@ -13,11 +13,14 @@ import io.circe.syntax._
 import io.circe.literal._
 import io.circe.Json
 import http.{ApiResponseCodes, HttpErrorHandler}
-import utils.Validator
+import utils.Validation
 import org.http4s._
 import org.http4s.circe._
 import org.scalatest._
 import org.scalatest.prop.PropertyChecks
+
+import eu.timepit.refined.auto._
+import eu.timepit.refined.types.numeric.NonNegDouble
 
 @SuppressWarnings(Array("org.wartremover.warts.Throw", "org.wartremover.warts.OptionPartial"))
 class ItemEndpointsSpec
@@ -188,7 +191,7 @@ class ItemEndpointsSpec
       responseEntity.get[String]("code") shouldEqual Right(ApiResponseCodes.VALIDATION_FAILED)
       responseEntity.get[String]("message") shouldEqual Right("Validation failed")
       responseEntity.get[String]("type") shouldEqual Right("FieldErrors")
-      responseEntity.get[Vector[Validator.FieldError]]("errors") match {
+      responseEntity.get[Vector[Validation.FieldError]]("errors") match {
         case Left(failure) => fail(failure.message)
         case Right(errors) =>
           errors.size shouldEqual 3
@@ -217,7 +220,7 @@ class ItemEndpointsSpec
       _ = responseEntity.get[String]("code") shouldEqual Right(ApiResponseCodes.VALIDATION_FAILED)
       _ = responseEntity.get[String]("message") shouldEqual Right("Validation failed")
       _ = responseEntity.get[String]("type") shouldEqual Right("FieldErrors")
-      _ = responseEntity.get[Vector[Validator.FieldError]]("errors") match {
+      _ = responseEntity.get[Vector[Validation.FieldError]]("errors") match {
         case Left(failure) => fail(failure.message)
         case Right(errors) =>
           errors.size shouldEqual 3
@@ -240,7 +243,7 @@ class ItemEndpointsSpec
       _ = responseEntity.get[String]("code") shouldEqual Right(ApiResponseCodes.VALIDATION_FAILED)
       _ = responseEntity.get[String]("message") shouldEqual Right("Validation failed")
       _ = responseEntity.get[String]("type") shouldEqual Right("FieldErrors")
-      _ = responseEntity.get[Vector[Validator.FieldError]]("errors") match {
+      _ = responseEntity.get[Vector[Validation.FieldError]]("errors") match {
         case Left(failure) => fail(failure.message)
         case Right(errors) =>
           errors.size shouldEqual 3
@@ -321,7 +324,7 @@ class ItemEndpointsSpec
 
       // patch name
       newName = "Cake"
-      patchName = json"""{"op":"replace","path":"/name","value":${newName}}"""
+      patchName = json"""{"op":"replace","path":"/name","value":$newName}"""
       patchRequest <- Request[IO](Method.PATCH, Uri.unsafeFromString("/" + id))
         .withBody(patchName)
       patchResponse <- itemHttpService
@@ -332,8 +335,8 @@ class ItemEndpointsSpec
       _ = patchedItem.name shouldEqual Name(newName)
 
       // patch price
-      newPrice = 50.99
-      patchPrice = json"""{"op":"replace","path":"/price","value":${newPrice}}"""
+      newPrice = NonNegDouble(50.99)
+      patchPrice = json"""{"op":"replace","path":"/price","value":${newPrice.value}}"""
       patchRequest <- Request[IO](Method.PATCH, Uri.unsafeFromString("/" + id))
         .withBody(patchPrice)
       patchResponse <- itemHttpService
@@ -345,7 +348,7 @@ class ItemEndpointsSpec
 
       // patch category
       newCategory = "Dessert"
-      patchCategory = json"""{"op":"replace","path":"/category","value":${newCategory}}"""
+      patchCategory = json"""{"op":"replace","path":"/category","value":$newCategory}"""
       patchRequest <- Request[IO](Method.PATCH, Uri.unsafeFromString("/" + id))
         .withBody(patchCategory)
       patchResponse <- itemHttpService
@@ -369,7 +372,8 @@ class ItemEndpointsSpec
       _ = patchResponse.status shouldEqual Ok
       patchedItem <- patchResponse.as[Item]
       _ = patchedItem.name shouldEqual Name(item.name)
-      _ = patchedItem.priceInCents shouldEqual Cents.fromStandardAmount(item.price)
+      _ = patchedItem.priceInCents shouldEqual Cents.fromStandardAmount(
+        NonNegDouble.unsafeFrom(item.price))
       _ = patchedItem.category shouldEqual Category(item.category)
     } yield {}).unsafeRunSync
 

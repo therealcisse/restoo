@@ -5,7 +5,14 @@ import cats.effect.{Async, Sync}
 import doobie.hikari._, doobie.hikari.implicits._
 import org.flywaydb.core.Flyway
 
-final case class DatabaseConf(url: String, driver: String, user: String, password: String)
+import eu.timepit.refined.auto._
+import eu.timepit.refined.types.string._
+
+final case class DatabaseConf(
+    url: NonEmptyString,
+    driver: NonEmptyString,
+    user: NonEmptyString,
+    password: String)
 
 object DatabaseConf {
 

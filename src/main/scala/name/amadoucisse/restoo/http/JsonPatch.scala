@@ -13,6 +13,10 @@ import io.circe.generic.auto._
 sealed trait JsonPatch {
   import JsonPatch._
 
+  /*
+   * Field path
+   * Only root paths are supported
+   */
   def path: String
 
   def value: Json
@@ -29,6 +33,7 @@ sealed trait JsonPatch {
 }
 
 object JsonPatch {
+  // Accepts object or array of objects
   implicit def jsonDecoder: Decoder[Vector[JsonPatch]] = Decoder.decodeJson.map(fromJson)
 
   final case class ReplaceOp(path: String, value: Json) extends JsonPatch

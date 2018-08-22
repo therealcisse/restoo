@@ -1,6 +1,7 @@
 package name.amadoucisse.restoo
 
 import cats.effect.IO
+import eu.timepit.refined.types.numeric.NonNegDouble
 import domain.items._
 import domain.entries._
 import infra.endpoint.ItemEndpoints.{ItemRequest, StockRequest}
@@ -84,8 +85,8 @@ class AppServerSpec
         _ = retrieved.value shouldBe updatedItem
 
         // change price
-        newPrice = 3.99
-        patchPrice = json"""{"op":"replace","path":"/price","value":${newPrice}}"""
+        newPrice = NonNegDouble(3.99)
+        patchPrice = json"""{"op":"replace","path":"/price","value":${newPrice.value}}"""
         patchedItem <- httpClient.expect[Item](
           Request[IO](Method.PATCH, uri(s"items/${item.id.value.value}"))
             .withBody(patchPrice)
@@ -96,7 +97,7 @@ class AppServerSpec
 
         // change name
         newName = "Cake"
-        patchName = json"""{"op":"replace","path":"/name","value":${newName}}"""
+        patchName = json"""{"op":"replace","path":"/name","value":$newName}"""
         patchedItem <- httpClient.expect[Item](
           Request[IO](Method.PATCH, uri(s"items/${item.id.value.value}"))
             .withBody(patchName)
@@ -107,7 +108,7 @@ class AppServerSpec
 
         // change category
         newCategory = "Dessert"
-        patchCategory = json"""{"op":"replace","path":"/category","value":${newCategory}}"""
+        patchCategory = json"""{"op":"replace","path":"/category","value":$newCategory}"""
         patchedItem <- httpClient.expect[Item](
           Request[IO](Method.PATCH, uri(s"items/${item.id.value.value}"))
             .withBody(patchCategory)

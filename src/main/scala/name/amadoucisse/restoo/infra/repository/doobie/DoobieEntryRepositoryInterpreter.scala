@@ -2,7 +2,7 @@ package name.amadoucisse.restoo
 package infra
 package repository.doobie
 
-import cats.Monad
+import cats._
 import cats.implicits._
 
 import doobie._
@@ -30,12 +30,18 @@ private object EntrySQL extends SQLCommon {
 final class DoobieEntryRepositoryInterpreter[F[_]: Monad](val xa: Transactor[F])
     extends EntryRepositoryAlgebra[F] {
 
-  def create(entry: Entry): F[Entry] =
-    EntrySQL
-      .insert(entry)
-      .withUniqueGeneratedKeys[Int]("id")
-      .map(id => entry.copy(id = EntryId(id).some))
-      .transact(xa)
+  def create(entry: Entry): F[Entry] = {
+    val program = for {
+      res <- EntrySQL
+        .insert(entry)
+        .withUniqueGeneratedKeys[Int]("id")
+        .map(id => entry.copy(id = EntryId(id).some))
+
+      _ <- ItemSQL.touch(entry.itemId).run
+    } yield res
+
+    program.transact(xa)
+  }
 
   def count(id: ItemId): F[Option[Long]] = EntrySQL.count(id).unique.transact(xa)
 }

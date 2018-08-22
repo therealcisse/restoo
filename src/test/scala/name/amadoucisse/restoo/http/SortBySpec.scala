@@ -4,7 +4,10 @@ package http
 import org.scalatest._
 import org.scalatest.prop.PropertyChecks
 
-class OrderBySpec extends FunSuite with PropertyChecks with Matchers {
+import eu.timepit.refined.types.string.NonEmptyString
+import eu.timepit.refined.auto._
+
+class SortBySpec extends FunSuite with PropertyChecks with Matchers {
 
   val sortByFields = Table(
     "sortByField",
@@ -18,16 +21,22 @@ class OrderBySpec extends FunSuite with PropertyChecks with Matchers {
   test("some good cases") {
 
     forAll(sortByFields) { name =>
-      OrderBy.fromString(name) shouldEqual Seq(SortBy(name, OrderBy.Ascending))
-      OrderBy.fromString("+" + name) shouldEqual Seq(SortBy(name, OrderBy.Ascending))
-      OrderBy.fromString("-" + name) shouldEqual Seq(SortBy(name, OrderBy.Descending))
+      OrderBy.fromString(NonEmptyString.unsafeFrom(name)) shouldEqual Seq(
+        SortBy(NonEmptyString.unsafeFrom(name), OrderBy.Ascending))
 
-      OrderBy.fromString("-" + name + "," + name.reverse) shouldEqual Seq(
-        SortBy(name, OrderBy.Descending),
-        SortBy(name.reverse, OrderBy.Ascending))
-      OrderBy.fromString("-" + name + ",+" + name.reverse) shouldEqual Seq(
-        SortBy(name, OrderBy.Descending),
-        SortBy(name.reverse, OrderBy.Ascending))
+      OrderBy.fromString(NonEmptyString.unsafeFrom("+" + name)) shouldEqual Seq(
+        SortBy(NonEmptyString.unsafeFrom(name), OrderBy.Ascending))
+
+      OrderBy.fromString(NonEmptyString.unsafeFrom("-" + name)) shouldEqual Seq(
+        SortBy(NonEmptyString.unsafeFrom(name), OrderBy.Descending))
+
+      OrderBy.fromString(NonEmptyString.unsafeFrom("-" + name + "," + name.reverse)) shouldEqual Seq(
+        SortBy(NonEmptyString.unsafeFrom(name), OrderBy.Descending),
+        SortBy(NonEmptyString.unsafeFrom(name.reverse), OrderBy.Ascending))
+
+      OrderBy.fromString(NonEmptyString.unsafeFrom("-" + name + ",+" + name.reverse)) shouldEqual Seq(
+        SortBy(NonEmptyString.unsafeFrom(name), OrderBy.Descending),
+        SortBy(NonEmptyString.unsafeFrom(name.reverse), OrderBy.Ascending))
     }
   }
 

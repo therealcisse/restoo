@@ -13,7 +13,7 @@ final case class Stock(
 )
 
 object Stock {
-  implicit def encoder: Encoder[Stock] = deriveEncoder
-  implicit def decoder: Decoder[Stock] = deriveDecoder
+  implicit def jsonEncoder: Encoder[Stock] = deriveEncoder
+  implicit def jsonDecoder: Decoder[Stock] = deriveDecoder
 
 }

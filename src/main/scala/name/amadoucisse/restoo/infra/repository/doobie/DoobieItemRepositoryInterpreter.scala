@@ -19,6 +19,13 @@ private object ItemSQL extends SQLCommon {
     VALUES (${item.name}, ${item.priceInCents}, ${item.category}, ${item.createdAt}, ${item.updatedAt})
   """.update
 
+  def touch(id: ItemId): Update0 = sql"""
+    UPDATE items
+    SET
+      updated_at = ${OccurredAt.now}
+    WHERE id = $id
+  """.update
+
   def update(item: Item, id: ItemId): Update0 = sql"""
     UPDATE items
     SET
