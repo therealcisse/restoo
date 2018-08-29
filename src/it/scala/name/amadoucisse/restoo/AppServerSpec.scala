@@ -85,7 +85,7 @@ class AppServerSpec
         _ = retrieved.value shouldBe updatedItem
 
         // change price
-        newPrice = NonNegDouble(3.99)
+        newPrice = NonNegDouble.unsafeFrom(3.99)
         patchPrice = json"""{"op":"replace","path":"/price","value":${newPrice.value}}"""
         patchedItem <- httpClient.expect[Item](
           Request[IO](Method.PATCH, uri(s"items/${item.id.value.value}"))

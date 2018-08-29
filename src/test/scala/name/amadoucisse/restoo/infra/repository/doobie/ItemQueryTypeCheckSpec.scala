@@ -2,45 +2,69 @@ package name.amadoucisse.restoo
 package infra
 package repository.doobie
 
-import org.scalatest._
 import cats.effect.IO
-
-import doobie.scalatest.IOChecker
-import doobie.util.transactor.Transactor
-
-import domain.items.{Category, ItemId}
+import domain.items.{Category, ItemId, Name}
 import http.{OrderBy, SortBy}
-
 import eu.timepit.refined.auto._
-
 import Arbitraries.item
+import common.IOAssertion
 
-class ItemQueryTypeCheckSpec extends FunSuite with Matchers with IOChecker {
-  override val transactor: Transactor[IO] = testTransactor
+class ItemQueryTypeCheckSpec extends RepositorySpec {
+  override def testDbName: String = getClass.getSimpleName
 
-  import ItemSQL._
+  private lazy val repo = new DoobieItemRepositoryInterpreter[IO](transactor)
+
+  test("NOT find by name") {
+    IOAssertion {
+      for {
+        rs <- repo.findByName(Name("Some item"))
+      } yield {
+        assert(rs.isEmpty)
+      }
+    }
+  }
+
+  test("NOT list any") {
+    IOAssertion {
+      for {
+        rs <- repo.list(None, Nil).compile.toList
+      } yield {
+        assert(rs.isEmpty)
+      }
+    }
+  }
+
+  test("NOT find by id") {
+    IOAssertion {
+      for {
+        rs <- repo.get(ItemId(1))
+      } yield {
+        assert(rs.isEmpty)
+      }
+    }
+  }
 
   test("Typecheck item queries") {
     item.arbitrary.sample.map { u =>
-      check(insert(u))
-      check(byName(u.name))
-      u.id.foreach(id => check(update(u, id)))
+      check(ItemSQL.insert(u))
+      check(ItemSQL.byName(u.name))
+      u.id.foreach(id => check(ItemSQL.update(u, id)))
     }
-    check(selectAll(None, Nil))
+    check(ItemSQL.selectAll(None, Nil))
     check(
-      selectAll(
+      ItemSQL.selectAll(
         None,
         Seq(
           SortBy("created_at", OrderBy.Descending),
           SortBy("updated_at", OrderBy.Ascending),
           SortBy("name", OrderBy.Descending))))
-    check(selectAll(Some(Category("category")), Nil))
+    check(ItemSQL.selectAll(Some(Category("category")), Nil))
     check(
-      selectAll(
+      ItemSQL.selectAll(
         Some(Category("category")),
         Seq(SortBy("name", OrderBy.Descending), SortBy("category", OrderBy.Ascending))))
-    check(select(ItemId(1)))
-    check(delete(ItemId(1)))
-    check(touch(ItemId(1)))
+    check(ItemSQL.select(ItemId(1)))
+    check(ItemSQL.delete(ItemId(1)))
+    check(ItemSQL.touch(ItemId(1)))
   }
 }

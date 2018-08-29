@@ -5,6 +5,7 @@ package endpoint
 import name.amadoucisse.restoo.config.SwaggerConf
 import domain.items._
 import domain.entries._
+import common.IOAssertion
 import service.{ItemService, StockService}
 import repository.inmemory.{EntryRepositoryInMemoryInterpreter, ItemRepositoryInMemoryInterpreter}
 import cats.effect._
@@ -34,86 +35,91 @@ class ItemEndpointsSpec
 
   test("add item") {
 
-    val itemRepo = ItemRepositoryInMemoryInterpreter[IO]
-    val itemService = ItemService(itemRepo)
+    IOAssertion {
+      val itemRepo = ItemRepositoryInMemoryInterpreter[IO]
+      val itemService = ItemService(itemRepo)
 
-    val entryRepo = EntryRepositoryInMemoryInterpreter[IO]
-    val stockService = StockService(entryRepo, itemRepo)
+      val entryRepo = EntryRepositoryInMemoryInterpreter[IO]
+      val stockService = StockService(entryRepo, itemRepo)
 
-    val swaggerConf = SwaggerConf("localhost", Nil)
+      val swaggerConf = SwaggerConf("localhost", Nil)
 
-    val itemHttpService = ItemEndpoints.endpoints[IO](itemService, stockService, swaggerConf)
+      val itemHttpService = ItemEndpoints.endpoints[IO](itemService, stockService, swaggerConf)
 
-    val item = ItemEndpoints.ItemRequest(name = "Item 0", price = 99.99, category = "Food & Drinks")
+      val item =
+        ItemEndpoints.ItemRequest(name = "Item 0", price = 99.99, category = "Food & Drinks")
 
-    (for {
-      request <- Request[IO](Method.POST, Uri.uri("/")).withBody(item.asJson)
-      response <- itemHttpService
-        .run(request)
-        .getOrElse(fail(s"Request was not handled: $request"))
-    } yield {
-      response.status shouldEqual Created
-    }).unsafeRunSync
+      for {
+        request <- Request[IO](Method.POST, Uri.uri("/")).withBody(item.asJson)
+        response <- itemHttpService
+          .run(request)
+          .getOrElse(fail(s"Request was not handled: $request"))
+        _ = response.status shouldEqual Created
+      } yield {}
+    }
 
   }
 
   test("disallow duplicate item names on update") {
 
-    val itemRepo = ItemRepositoryInMemoryInterpreter[IO]
-    val itemService = ItemService(itemRepo)
+    IOAssertion {
 
-    val entryRepo = EntryRepositoryInMemoryInterpreter[IO]
-    val stockService = StockService(entryRepo, itemRepo)
+      val itemRepo = ItemRepositoryInMemoryInterpreter[IO]
+      val itemService = ItemService(itemRepo)
 
-    val swaggerConf = SwaggerConf("localhost", Nil)
+      val entryRepo = EntryRepositoryInMemoryInterpreter[IO]
+      val stockService = StockService(entryRepo, itemRepo)
 
-    val itemHttpService = ItemEndpoints.endpoints[IO](itemService, stockService, swaggerConf)
+      val swaggerConf = SwaggerConf("localhost", Nil)
 
-    implicit val itemDecoder: EntityDecoder[IO, Item] = jsonOf
+      val itemHttpService = ItemEndpoints.endpoints[IO](itemService, stockService, swaggerConf)
 
-    val itemARequest =
-      ItemEndpoints.ItemRequest(name = "ItemA", price = 99.99, category = "Food & Drinks")
-    val itemBRequest = itemARequest.copy(name = "ItemB")
+      implicit val itemDecoder: EntityDecoder[IO, Item] = jsonOf
 
-    (for {
+      val itemARequest =
+        ItemEndpoints.ItemRequest(name = "ItemA", price = 99.99, category = "Food & Drinks")
+      val itemBRequest = itemARequest.copy(name = "ItemB")
 
-      // Add item A
-      request <- Request[IO](Method.POST, Uri.uri("/")).withBody(itemARequest.asJson)
-      response <- itemHttpService
-        .run(request)
-        .getOrElse(fail(s"Request was not handled: $request"))
-      _ = response.status shouldEqual Created
-      itemA <- response.as[Item]
-      _ = itemA.name shouldEqual Name(itemARequest.name)
+      for {
 
-      // Add item B
-      request <- Request[IO](Method.POST, Uri.uri("/")).withBody(itemBRequest.asJson)
-      response <- itemHttpService
-        .run(request)
-        .getOrElse(fail(s"Request was not handled: $request"))
-      _ = response.status shouldEqual Created
-      itemB <- response.as[Item]
-      _ = itemB.name shouldEqual Name(itemBRequest.name)
+        // Add item A
+        request <- Request[IO](Method.POST, Uri.uri("/")).withBody(itemARequest.asJson)
+        response <- itemHttpService
+          .run(request)
+          .getOrElse(fail(s"Request was not handled: $request"))
+        _ = response.status shouldEqual Created
+        itemA <- response.as[Item]
+        _ = itemA.name shouldEqual Name(itemARequest.name)
 
-      // Try updating itemB's name to equal itemA's name
-      itemToUpdate = itemBRequest.copy(name = itemA.name.value)
-      updateRequest <- Request[IO](
-        Method.PUT,
-        Uri.unsafeFromString("/" + itemB.id.map(_.value.toString).get))
-        .withBody(itemToUpdate.asJson)
-      updateResponse <- itemHttpService
-        .run(updateRequest)
-        .getOrElse(fail(s"Request was not handled: $updateRequest"))
-      updatedItem <- updateResponse.as[Json]
-      _ = updateResponse.status shouldEqual Conflict
-      _ = updatedItem.hcursor.downField("error").get[String]("code") shouldEqual Right(
-        ApiResponseCodes.CONFLICT)
-      _ = updatedItem.hcursor.downField("error").get[String]("message") shouldEqual Right(
-        "Item name is taken")
-      _ = updatedItem.hcursor.downField("error").get[String]("type") shouldEqual Right(
-        "DuplicateItem")
+        // Add item B
+        request <- Request[IO](Method.POST, Uri.uri("/")).withBody(itemBRequest.asJson)
+        response <- itemHttpService
+          .run(request)
+          .getOrElse(fail(s"Request was not handled: $request"))
+        _ = response.status shouldEqual Created
+        itemB <- response.as[Item]
+        _ = itemB.name shouldEqual Name(itemBRequest.name)
 
-    } yield {}).unsafeRunSync
+        // Try updating itemB's name to equal itemA's name
+        itemToUpdate = itemBRequest.copy(name = itemA.name.value)
+        updateRequest <- Request[IO](
+          Method.PUT,
+          Uri.unsafeFromString("/" + itemB.id.map(_.value.toString).get))
+          .withBody(itemToUpdate.asJson)
+        updateResponse <- itemHttpService
+          .run(updateRequest)
+          .getOrElse(fail(s"Request was not handled: $updateRequest"))
+        updatedItem <- updateResponse.as[Json]
+        _ = updateResponse.status shouldEqual Conflict
+
+        errorResponse = updatedItem.hcursor.downField("error")
+        _ = errorResponse.get[String]("code") shouldEqual Right(ApiResponseCodes.CONFLICT)
+        _ = errorResponse.get[String]("message") shouldEqual Right("Item name is taken")
+        _ = errorResponse.get[String]("type") shouldEqual Right("DuplicateItem")
+
+      } yield {}
+
+    }
 
   }
 
@@ -129,35 +135,39 @@ class ItemEndpointsSpec
 
     val itemHttpService = ItemEndpoints.endpoints[IO](itemService, stockService, swaggerConf)
 
-    val item = ItemEndpoints.ItemRequest(name = "Item 0", price = 99.99, category = "Food & Drinks")
+    val item =
+      ItemEndpoints.ItemRequest(name = "Item 0", price = 99.99, category = "Food & Drinks")
 
-    (for {
-      request <- Request[IO](Method.POST, Uri.uri("/")).withBody(item.asJson)
-      response <- itemHttpService
-        .run(request)
-        .getOrElse(fail(s"Request was not handled: $request"))
+    // Create an item
+    IOAssertion {
 
-    } yield {
-      response.status shouldEqual Created
-    }).unsafeRunSync
+      for {
+        request <- Request[IO](Method.POST, Uri.uri("/")).withBody(item.asJson)
+        response <- itemHttpService
+          .run(request)
+          .getOrElse(fail(s"Request was not handled: $request"))
+        _ = response.status shouldEqual Created
+      } yield {}
+    }
 
     // Try adding a duplicate
-    (for {
-      request <- Request[IO](Method.POST, Uri.uri("/")).withBody(item.asJson)
-      response <- itemHttpService
-        .run(request)
-        .getOrElse(fail(s"Request was not handled: $request"))
+    IOAssertion {
 
-    } yield {
-      response.status shouldEqual Conflict
+      for {
+        request <- Request[IO](Method.POST, Uri.uri("/")).withBody(item.asJson)
+        response <- itemHttpService
+          .run(request)
+          .getOrElse(fail(s"Request was not handled: $request"))
 
-      val responseEntity = response.as[Json].unsafeRunSync().hcursor.downField("error")
+        _ = response.status shouldEqual Conflict
 
-      responseEntity.get[String]("code") shouldEqual Right(ApiResponseCodes.CONFLICT)
-      responseEntity.get[String]("message") shouldEqual Right("Item already exists")
-      responseEntity.get[String]("type") shouldEqual Right("ItemAlreadyExists")
+        responseEntity = response.as[Json].unsafeRunSync().hcursor.downField("error")
 
-    }).unsafeRunSync
+        _ = responseEntity.get[String]("code") shouldEqual Right(ApiResponseCodes.CONFLICT)
+        _ = responseEntity.get[String]("message") shouldEqual Right("Item already exists")
+        _ = responseEntity.get[String]("type") shouldEqual Right("ItemAlreadyExists")
+      } yield {}
+    }
 
   }
 
@@ -177,366 +187,387 @@ class ItemEndpointsSpec
 
     implicit val itemDecoder: EntityDecoder[IO, Item] = jsonOf
 
-    (for {
-      request <- Request[IO](Method.POST, Uri.uri("/")).withBody(item.asJson)
-      response <- itemHttpService
-        .run(request)
-        .getOrElse(fail(s"Request was not handled: $request"))
+    IOAssertion {
 
-    } yield {
-      response.status shouldEqual UnprocessableEntity
+      for {
+        request <- Request[IO](Method.POST, Uri.uri("/")).withBody(item.asJson)
+        response <- itemHttpService
+          .run(request)
+          .getOrElse(fail(s"Request was not handled: $request"))
 
-      val responseEntity = response.as[Json].unsafeRunSync().hcursor
+        _ = response.status shouldEqual UnprocessableEntity
 
-      responseEntity.get[String]("code") shouldEqual Right(ApiResponseCodes.VALIDATION_FAILED)
-      responseEntity.get[String]("message") shouldEqual Right("Validation failed")
-      responseEntity.get[String]("type") shouldEqual Right("FieldErrors")
-      responseEntity.get[Vector[Validation.FieldError]]("errors") match {
-        case Left(failure) => fail(failure.message)
-        case Right(errors) =>
-          errors.size shouldEqual 3
-      }
-    }).unsafeRunSync
+        responseEntity = response.as[Json].unsafeRunSync().hcursor
+        _ = responseEntity.get[String]("code") shouldEqual Right(ApiResponseCodes.VALIDATION_FAILED)
+        _ = responseEntity.get[String]("message") shouldEqual Right("Validation failed")
+        _ = responseEntity.get[String]("type") shouldEqual Right("FieldErrors")
+        _ = responseEntity.get[Vector[Validation.FieldError]]("errors") match {
+          case Left(failure) => fail(failure.message)
+          case Right(errors) =>
+            errors.size shouldEqual 3
+        }
+      } yield {}
+    }
 
-    (for {
-      createRequest <- Request[IO](Method.POST, Uri.uri("/"))
-        .withBody(
-          ItemEndpoints.ItemRequest(name = "Name", price = 99.99, category = "Category").asJson)
-      createResponse <- itemHttpService
-        .run(createRequest)
-        .getOrElse(fail(s"Request was not handled: $createRequest"))
-      createdItem <- createResponse.as[Item]
+    IOAssertion {
 
-      id = createdItem.id.map(_.value.toString).get
+      for {
+        createRequest <- Request[IO](Method.POST, Uri.uri("/"))
+          .withBody(
+            ItemEndpoints.ItemRequest(name = "Name", price = 99.99, category = "Category").asJson)
+        createResponse <- itemHttpService
+          .run(createRequest)
+          .getOrElse(fail(s"Request was not handled: $createRequest"))
+        createdItem <- createResponse.as[Item]
 
-      request <- Request[IO](Method.PUT, Uri.unsafeFromString("/" + id)).withBody(item.asJson)
-      response <- itemHttpService
-        .run(request)
-        .getOrElse(fail(s"Request was not handled: $request"))
+        id = createdItem.id.map(_.value.toString).get
 
-      _ = response.status shouldEqual UnprocessableEntity
+        // Invalid update
+        request <- Request[IO](Method.PUT, Uri.unsafeFromString("/" + id)).withBody(item.asJson)
+        response <- itemHttpService
+          .run(request)
+          .getOrElse(fail(s"Request was not handled: $request"))
 
-      responseEntity = response.as[Json].unsafeRunSync().hcursor
-      _ = responseEntity.get[String]("code") shouldEqual Right(ApiResponseCodes.VALIDATION_FAILED)
-      _ = responseEntity.get[String]("message") shouldEqual Right("Validation failed")
-      _ = responseEntity.get[String]("type") shouldEqual Right("FieldErrors")
-      _ = responseEntity.get[Vector[Validation.FieldError]]("errors") match {
-        case Left(failure) => fail(failure.message)
-        case Right(errors) =>
-          errors.size shouldEqual 3
-      }
+        _ = response.status shouldEqual UnprocessableEntity
 
-      patches = Vector(
-        json"""{"op":"replace","path":"/name","value":${item.name}}""",
-        json"""{"op":"replace","path":"/price","value":${item.price}}""",
-        json"""{"op":"replace","path":"/category","value":${item.category}}""",
-      )
-      request <- Request[IO](Method.PATCH, Uri.unsafeFromString("/" + id))
-        .withBody(patches.asJson)
-      response <- itemHttpService
-        .run(request)
-        .getOrElse(fail(s"Request was not handled: $request"))
+        responseEntity = response.as[Json].unsafeRunSync().hcursor
+        _ = responseEntity.get[String]("code") shouldEqual Right(ApiResponseCodes.VALIDATION_FAILED)
+        _ = responseEntity.get[String]("message") shouldEqual Right("Validation failed")
+        _ = responseEntity.get[String]("type") shouldEqual Right("FieldErrors")
+        _ = responseEntity.get[Vector[Validation.FieldError]]("errors") match {
+          case Left(failure) => fail(failure.message)
+          case Right(errors) =>
+            errors.size shouldEqual 3
+        }
 
-      _ = response.status shouldEqual UnprocessableEntity
+        // Invalid patch
+        patches = Vector(
+          json"""{"op":"replace","path":"/name","value":${item.name}}""",
+          json"""{"op":"replace","path":"/price","value":${item.price}}""",
+          json"""{"op":"replace","path":"/category","value":${item.category}}""",
+        )
+        request <- Request[IO](Method.PATCH, Uri.unsafeFromString("/" + id))
+          .withBody(patches.asJson)
+        response <- itemHttpService
+          .run(request)
+          .getOrElse(fail(s"Request was not handled: $request"))
 
-      responseEntity = response.as[Json].unsafeRunSync().hcursor
-      _ = responseEntity.get[String]("code") shouldEqual Right(ApiResponseCodes.VALIDATION_FAILED)
-      _ = responseEntity.get[String]("message") shouldEqual Right("Validation failed")
-      _ = responseEntity.get[String]("type") shouldEqual Right("FieldErrors")
-      _ = responseEntity.get[Vector[Validation.FieldError]]("errors") match {
-        case Left(failure) => fail(failure.message)
-        case Right(errors) =>
-          errors.size shouldEqual 3
-      }
+        _ = response.status shouldEqual UnprocessableEntity
 
-    } yield {}).unsafeRunSync
+        responseEntity = response.as[Json].unsafeRunSync().hcursor
+        _ = responseEntity.get[String]("code") shouldEqual Right(ApiResponseCodes.VALIDATION_FAILED)
+        _ = responseEntity.get[String]("message") shouldEqual Right("Validation failed")
+        _ = responseEntity.get[String]("type") shouldEqual Right("FieldErrors")
+        _ = responseEntity.get[Vector[Validation.FieldError]]("errors") match {
+          case Left(failure) => fail(failure.message)
+          case Right(errors) =>
+            errors.size shouldEqual 3
+        }
+
+      } yield {}
+    }
 
   }
 
   test("update item") {
 
-    val itemRepo = ItemRepositoryInMemoryInterpreter[IO]
-    val itemService = ItemService(itemRepo)
+    IOAssertion {
 
-    val entryRepo = EntryRepositoryInMemoryInterpreter[IO]
-    val stockService = StockService(entryRepo, itemRepo)
+      val itemRepo = ItemRepositoryInMemoryInterpreter[IO]
+      val itemService = ItemService(itemRepo)
 
-    val swaggerConf = SwaggerConf("localhost", Nil)
+      val entryRepo = EntryRepositoryInMemoryInterpreter[IO]
+      val stockService = StockService(entryRepo, itemRepo)
 
-    val itemHttpService = ItemEndpoints.endpoints[IO](itemService, stockService, swaggerConf)
+      val swaggerConf = SwaggerConf("localhost", Nil)
 
-    implicit val itemDecoder: EntityDecoder[IO, Item] = jsonOf
+      val itemHttpService = ItemEndpoints.endpoints[IO](itemService, stockService, swaggerConf)
 
-    val item =
-      ItemEndpoints.ItemRequest(name = "Cheese Burger", price = 99.99, category = "Food & Drinks")
+      implicit val itemDecoder: EntityDecoder[IO, Item] = jsonOf
 
-    (for {
-      createRequest <- Request[IO](Method.POST, Uri.uri("/")).withBody(item.asJson)
-      createResponse <- itemHttpService
-        .run(createRequest)
-        .getOrElse(fail(s"Request was not handled: $createRequest"))
-      createdItem <- createResponse.as[Item]
+      val item =
+        ItemEndpoints.ItemRequest(name = "Cheese Burger", price = 99.99, category = "Food & Drinks")
 
-      itemToUpdate = item.copy(name = createdItem.name.value.reverse)
-      updateRequest <- Request[IO](
-        Method.PUT,
-        Uri.unsafeFromString("/" + createdItem.id.map(_.value.toString).get))
-        .withBody(itemToUpdate.asJson)
-      updateResponse <- itemHttpService
-        .run(updateRequest)
-        .getOrElse(fail(s"Request was not handled: $updateRequest"))
-      updatedItem <- updateResponse.as[Item]
-    } yield {
+      for {
+        createRequest <- Request[IO](Method.POST, Uri.uri("/")).withBody(item.asJson)
+        createResponse <- itemHttpService
+          .run(createRequest)
+          .getOrElse(fail(s"Request was not handled: $createRequest"))
+        createdItem <- createResponse.as[Item]
 
-      createResponse.status shouldEqual Created
-      updateResponse.status shouldEqual Ok
-      updatedItem.name.value shouldEqual item.name.reverse
-      createdItem.id shouldEqual updatedItem.id
-    }).unsafeRunSync
+        itemToUpdate = item.copy(name = createdItem.name.value.reverse)
+        updateRequest <- Request[IO](
+          Method.PUT,
+          Uri.unsafeFromString("/" + createdItem.id.map(_.value.toString).get))
+          .withBody(itemToUpdate.asJson)
+        updateResponse <- itemHttpService
+          .run(updateRequest)
+          .getOrElse(fail(s"Request was not handled: $updateRequest"))
+        updatedItem <- updateResponse.as[Item]
+
+        _ = createResponse.status shouldEqual Created
+        _ = updateResponse.status shouldEqual Ok
+        _ = updatedItem.name.value shouldEqual item.name.reverse
+        _ = createdItem.id shouldEqual updatedItem.id
+      } yield {}
+    }
 
   }
 
   test("patch item") {
 
-    val itemRepo = ItemRepositoryInMemoryInterpreter[IO]
-    val itemService = ItemService(itemRepo)
+    IOAssertion {
 
-    val entryRepo = EntryRepositoryInMemoryInterpreter[IO]
-    val stockService = StockService(entryRepo, itemRepo)
+      val itemRepo = ItemRepositoryInMemoryInterpreter[IO]
+      val itemService = ItemService(itemRepo)
 
-    val swaggerConf = SwaggerConf("localhost", Nil)
+      val entryRepo = EntryRepositoryInMemoryInterpreter[IO]
+      val stockService = StockService(entryRepo, itemRepo)
 
-    val itemHttpService = ItemEndpoints.endpoints[IO](itemService, stockService, swaggerConf)
+      val swaggerConf = SwaggerConf("localhost", Nil)
 
-    implicit val itemDecoder: EntityDecoder[IO, Item] = jsonOf
+      val itemHttpService = ItemEndpoints.endpoints[IO](itemService, stockService, swaggerConf)
 
-    val item =
-      ItemEndpoints.ItemRequest(name = "Cheese Burger", price = 99.99, category = "Food & Drinks")
+      implicit val itemDecoder: EntityDecoder[IO, Item] = jsonOf
 
-    (for {
-      createRequest <- Request[IO](Method.POST, Uri.uri("/")).withBody(item.asJson)
-      createResponse <- itemHttpService
-        .run(createRequest)
-        .getOrElse(fail(s"Request was not handled: $createRequest"))
-      createdItem <- createResponse.as[Item]
+      val item =
+        ItemEndpoints.ItemRequest(name = "Cheese Burger", price = 99.99, category = "Food & Drinks")
 
-      id = createdItem.id.map(_.value.toString).get
+      for {
+        createRequest <- Request[IO](Method.POST, Uri.uri("/")).withBody(item.asJson)
+        createResponse <- itemHttpService
+          .run(createRequest)
+          .getOrElse(fail(s"Request was not handled: $createRequest"))
+        createdItem <- createResponse.as[Item]
 
-      // patch name
-      newName = "Cake"
-      patchName = json"""{"op":"replace","path":"/name","value":$newName}"""
-      patchRequest <- Request[IO](Method.PATCH, Uri.unsafeFromString("/" + id))
-        .withBody(patchName)
-      patchResponse <- itemHttpService
-        .run(patchRequest)
-        .getOrElse(fail(s"Request was not handled: $patchRequest"))
-      _ = patchResponse.status shouldEqual Ok
-      patchedItem <- patchResponse.as[Item]
-      _ = patchedItem.name shouldEqual Name(newName)
+        id = createdItem.id.map(_.value.toString).get
 
-      // patch price
-      newPrice = NonNegDouble(50.99)
-      patchPrice = json"""{"op":"replace","path":"/price","value":${newPrice.value}}"""
-      patchRequest <- Request[IO](Method.PATCH, Uri.unsafeFromString("/" + id))
-        .withBody(patchPrice)
-      patchResponse <- itemHttpService
-        .run(patchRequest)
-        .getOrElse(fail(s"Request was not handled: $patchRequest"))
-      _ = patchResponse.status shouldEqual Ok
-      patchedItem <- patchResponse.as[Item]
-      _ = patchedItem.priceInCents shouldEqual Cents.fromStandardAmount(newPrice)
+        // patch name
+        newName = "Cake"
+        patchName = json"""{"op":"replace","path":"/name","value":$newName}"""
+        patchRequest <- Request[IO](Method.PATCH, Uri.unsafeFromString("/" + id))
+          .withBody(patchName)
+        patchResponse <- itemHttpService
+          .run(patchRequest)
+          .getOrElse(fail(s"Request was not handled: $patchRequest"))
+        _ = patchResponse.status shouldEqual Ok
+        patchedItem <- patchResponse.as[Item]
+        _ = patchedItem.name shouldEqual Name(newName)
 
-      // patch category
-      newCategory = "Dessert"
-      patchCategory = json"""{"op":"replace","path":"/category","value":$newCategory}"""
-      patchRequest <- Request[IO](Method.PATCH, Uri.unsafeFromString("/" + id))
-        .withBody(patchCategory)
-      patchResponse <- itemHttpService
-        .run(patchRequest)
-        .getOrElse(fail(s"Request was not handled: $patchRequest"))
-      _ = patchResponse.status shouldEqual Ok
-      patchedItem <- patchResponse.as[Item]
-      _ = patchedItem.category shouldEqual Category(newCategory)
+        // patch price
+        newPrice = NonNegDouble.unsafeFrom(50.99)
+        patchPrice = json"""{"op":"replace","path":"/price","value":${newPrice.value}}"""
+        patchRequest <- Request[IO](Method.PATCH, Uri.unsafeFromString("/" + id))
+          .withBody(patchPrice)
+        patchResponse <- itemHttpService
+          .run(patchRequest)
+          .getOrElse(fail(s"Request was not handled: $patchRequest"))
+        _ = patchResponse.status shouldEqual Ok
+        patchedItem <- patchResponse.as[Item]
+        _ = patchedItem.priceInCents shouldEqual Cents.fromStandardAmount(newPrice)
 
-      // Revert all changes
-      patches = Vector(
-        json"""{"op":"replace","path":"/name","value":${item.name}}""",
-        json"""{"op":"replace","path":"/price","value":${item.price}}""",
-        json"""{"op":"replace","path":"/category","value":${item.category}}""",
-      )
-      patchRequest <- Request[IO](Method.PATCH, Uri.unsafeFromString("/" + id))
-        .withBody(patches.asJson)
-      patchResponse <- itemHttpService
-        .run(patchRequest)
-        .getOrElse(fail(s"Request was not handled: $patchRequest"))
-      _ = patchResponse.status shouldEqual Ok
-      patchedItem <- patchResponse.as[Item]
-      _ = patchedItem.name shouldEqual Name(item.name)
-      _ = patchedItem.priceInCents shouldEqual Cents.fromStandardAmount(
-        NonNegDouble.unsafeFrom(item.price))
-      _ = patchedItem.category shouldEqual Category(item.category)
-    } yield {}).unsafeRunSync
+        // patch category
+        newCategory = "Dessert"
+        patchCategory = json"""{"op":"replace","path":"/category","value":$newCategory}"""
+        patchRequest <- Request[IO](Method.PATCH, Uri.unsafeFromString("/" + id))
+          .withBody(patchCategory)
+        patchResponse <- itemHttpService
+          .run(patchRequest)
+          .getOrElse(fail(s"Request was not handled: $patchRequest"))
+        _ = patchResponse.status shouldEqual Ok
+        patchedItem <- patchResponse.as[Item]
+        _ = patchedItem.category shouldEqual Category(newCategory)
+
+        // Revert all changes
+        patches = Vector(
+          json"""{"op":"replace","path":"/name","value":${item.name}}""",
+          json"""{"op":"replace","path":"/price","value":${item.price}}""",
+          json"""{"op":"replace","path":"/category","value":${item.category}}""",
+        )
+        patchRequest <- Request[IO](Method.PATCH, Uri.unsafeFromString("/" + id))
+          .withBody(patches.asJson)
+        patchResponse <- itemHttpService
+          .run(patchRequest)
+          .getOrElse(fail(s"Request was not handled: $patchRequest"))
+        _ = patchResponse.status shouldEqual Ok
+        patchedItem <- patchResponse.as[Item]
+        _ = patchedItem.name shouldEqual Name(item.name)
+        _ = patchedItem.priceInCents shouldEqual Cents.fromStandardAmount(
+          NonNegDouble.unsafeFrom(item.price))
+        _ = patchedItem.category shouldEqual Category(item.category)
+      } yield {}
+    }
 
   }
 
   test("delete item by id") {
 
-    val itemRepo = ItemRepositoryInMemoryInterpreter[IO]
-    val itemService = ItemService[IO](itemRepo)
+    IOAssertion {
 
-    val entryRepo = EntryRepositoryInMemoryInterpreter[IO]
-    val stockService = StockService(entryRepo, itemRepo)
+      val itemRepo = ItemRepositoryInMemoryInterpreter[IO]
+      val itemService = ItemService[IO](itemRepo)
 
-    val swaggerConf = SwaggerConf("localhost", Nil)
+      val entryRepo = EntryRepositoryInMemoryInterpreter[IO]
+      val stockService = StockService(entryRepo, itemRepo)
 
-    val itemHttpService = ItemEndpoints.endpoints[IO](itemService, stockService, swaggerConf)
+      val swaggerConf = SwaggerConf("localhost", Nil)
 
-    implicit val itemDecoder: EntityDecoder[IO, Item] = jsonOf
+      val itemHttpService = ItemEndpoints.endpoints[IO](itemService, stockService, swaggerConf)
 
-    val item = ItemEndpoints.ItemRequest(name = "Item 0", price = 99.99, category = "Food & Drinks")
+      implicit val itemDecoder: EntityDecoder[IO, Item] = jsonOf
 
-    for {
-      createRequest <- Request[IO](Method.POST, Uri.uri("/"))
-        .withBody(item.asJson)
-      createResponse <- itemHttpService
-        .run(createRequest)
-        .getOrElse(fail(s"Request was not handled: $createRequest"))
-      createdItem <- createResponse.as[Item]
+      val item =
+        ItemEndpoints.ItemRequest(name = "Item 0", price = 99.99, category = "Food & Drinks")
 
-      deleteResponse <- itemHttpService
-        .run(
-          Request[IO](
-            Method.DELETE,
-            Uri.unsafeFromString("/" + createdItem.id.map(_.value.toString).get)))
-        .getOrElse(fail(s"Delete request was not handled"))
+      for {
+        createRequest <- Request[IO](Method.POST, Uri.uri("/"))
+          .withBody(item.asJson)
+        createResponse <- itemHttpService
+          .run(createRequest)
+          .getOrElse(fail(s"Request was not handled: $createRequest"))
+        createdItem <- createResponse.as[Item]
 
-      getResponse <- itemHttpService
-        .run(
-          Request[IO](
-            Method.GET,
-            Uri.unsafeFromString("/" + createdItem.id.map(_.value.toString).get)))
-        .getOrElse(fail(s"Get request was not handled"))
-    } yield {
-      createResponse.status shouldEqual Created
-      deleteResponse.status shouldEqual Ok
-      getResponse.status shouldEqual NotFound
+        deleteResponse <- itemHttpService
+          .run(
+            Request[IO](
+              Method.DELETE,
+              Uri.unsafeFromString("/" + createdItem.id.map(_.value.toString).get)))
+          .getOrElse(fail(s"Delete request was not handled"))
+
+        getResponse <- itemHttpService
+          .run(
+            Request[IO](
+              Method.GET,
+              Uri.unsafeFromString("/" + createdItem.id.map(_.value.toString).get)))
+          .getOrElse(fail(s"Get request was not handled"))
+
+        _ = createResponse.status shouldEqual Created
+        _ = deleteResponse.status shouldEqual Ok
+        _ = getResponse.status shouldEqual NotFound
+      } yield {}
+
     }
   }
 
   test("add or remove stock") {
 
-    val itemRepo = ItemRepositoryInMemoryInterpreter[IO]
-    val itemService = ItemService(itemRepo)
+    IOAssertion {
 
-    val entryRepo = EntryRepositoryInMemoryInterpreter[IO]
-    val stockService = StockService(entryRepo, itemRepo)
+      val itemRepo = ItemRepositoryInMemoryInterpreter[IO]
+      val itemService = ItemService(itemRepo)
 
-    val swaggerConf = SwaggerConf("localhost", Nil)
+      val entryRepo = EntryRepositoryInMemoryInterpreter[IO]
+      val stockService = StockService(entryRepo, itemRepo)
 
-    val itemHttpService = ItemEndpoints.endpoints[IO](itemService, stockService, swaggerConf)
+      val swaggerConf = SwaggerConf("localhost", Nil)
 
-    implicit val itemDecoder: EntityDecoder[IO, Item] = jsonOf
-    implicit val stockDecoder: EntityDecoder[IO, Stock] = jsonOf
+      val itemHttpService = ItemEndpoints.endpoints[IO](itemService, stockService, swaggerConf)
 
-    val item =
-      ItemEndpoints.ItemRequest(name = "Cheese Burger", price = 99.99, category = "Food & Drinks")
+      implicit val itemDecoder: EntityDecoder[IO, Item] = jsonOf
+      implicit val stockDecoder: EntityDecoder[IO, Stock] = jsonOf
 
-    val entry = ItemEndpoints.StockRequest(delta = 1)
+      val item =
+        ItemEndpoints.ItemRequest(name = "Cheese Burger", price = 99.99, category = "Food & Drinks")
 
-    (for {
-      createRequest <- Request[IO](Method.POST, Uri.uri("/")).withBody(item.asJson)
-      createResponse <- itemHttpService
-        .run(createRequest)
-        .getOrElse(fail(s"Request was not handled: $createRequest"))
-      createdItem <- createResponse.as[Item]
+      val entry = ItemEndpoints.StockRequest(delta = 1)
 
-      path = "/" + createdItem.id.map(_.value.toString).get + "/stocks"
+      for {
+        createRequest <- Request[IO](Method.POST, Uri.uri("/")).withBody(item.asJson)
+        createResponse <- itemHttpService
+          .run(createRequest)
+          .getOrElse(fail(s"Request was not handled: $createRequest"))
+        createdItem <- createResponse.as[Item]
 
-      getStockRequest = Request[IO](Method.GET, Uri.unsafeFromString(path))
+        path = "/" + createdItem.id.map(_.value.toString).get + "/stocks"
 
-      getStock0Response <- itemHttpService
-        .run(getStockRequest)
-        .getOrElse(fail(s"Request was not handled: $getStockRequest"))
-      stock0 <- getStock0Response.as[Stock]
+        getStockRequest = Request[IO](Method.GET, Uri.unsafeFromString(path))
 
-      addStockRequest <- Request[IO](Method.PUT, Uri.unsafeFromString(path)).withBody(entry.asJson)
-      _ <- itemHttpService
-        .run(addStockRequest)
-        .getOrElse(fail(s"Request was not handled: $addStockRequest"))
+        getStock0Response <- itemHttpService
+          .run(getStockRequest)
+          .getOrElse(fail(s"Request was not handled: $getStockRequest"))
+        stock0 <- getStock0Response.as[Stock]
 
-      getStock1Response <- itemHttpService
-        .run(getStockRequest)
-        .getOrElse(fail(s"Request was not handled: $getStockRequest"))
-      stock1 <- getStock1Response.as[Stock]
+        addStockRequest <- Request[IO](Method.PUT, Uri.unsafeFromString(path))
+          .withBody(entry.asJson)
+        _ <- itemHttpService
+          .run(addStockRequest)
+          .getOrElse(fail(s"Request was not handled: $addStockRequest"))
 
-      removeStockRequest <- Request[IO](Method.PUT, Uri.unsafeFromString(path))
-        .withBody(entry.copy(delta = -1 * entry.delta).asJson)
-      _ <- itemHttpService
-        .run(removeStockRequest)
-        .getOrElse(fail(s"Request was not handled: $removeStockRequest"))
+        getStock1Response <- itemHttpService
+          .run(getStockRequest)
+          .getOrElse(fail(s"Request was not handled: $getStockRequest"))
+        stock1 <- getStock1Response.as[Stock]
 
-      getStock2Response <- itemHttpService
-        .run(getStockRequest)
-        .getOrElse(fail(s"Request was not handled: $getStockRequest"))
-      stock2 <- getStock2Response.as[Stock]
+        removeStockRequest <- Request[IO](Method.PUT, Uri.unsafeFromString(path))
+          .withBody(entry.copy(delta = -1 * entry.delta).asJson)
+        _ <- itemHttpService
+          .run(removeStockRequest)
+          .getOrElse(fail(s"Request was not handled: $removeStockRequest"))
 
-    } yield {
+        getStock2Response <- itemHttpService
+          .run(getStockRequest)
+          .getOrElse(fail(s"Request was not handled: $getStockRequest"))
+        stock2 <- getStock2Response.as[Stock]
 
-      createResponse.status shouldEqual Created
-      stock0.quantity shouldEqual 0
-      stock1.quantity shouldEqual entry.delta
-      stock2.quantity shouldEqual 0
-    }).unsafeRunSync
+        _ = createResponse.status shouldEqual Created
+        _ = stock0.quantity shouldEqual 0
+        _ = stock1.quantity shouldEqual entry.delta
+        _ = stock2.quantity shouldEqual 0
+
+      } yield {}
+    }
 
   }
 
   test("no negative stock") {
 
-    val itemRepo = ItemRepositoryInMemoryInterpreter[IO]
-    val itemService = ItemService(itemRepo)
+    IOAssertion {
 
-    val entryRepo = EntryRepositoryInMemoryInterpreter[IO]
-    val stockService = StockService(entryRepo, itemRepo)
+      val itemRepo = ItemRepositoryInMemoryInterpreter[IO]
+      val itemService = ItemService(itemRepo)
 
-    val swaggerConf = SwaggerConf("localhost", Nil)
+      val entryRepo = EntryRepositoryInMemoryInterpreter[IO]
+      val stockService = StockService(entryRepo, itemRepo)
 
-    val itemHttpService = ItemEndpoints.endpoints[IO](itemService, stockService, swaggerConf)
+      val swaggerConf = SwaggerConf("localhost", Nil)
 
-    implicit val itemDecoder: EntityDecoder[IO, Item] = jsonOf
-    implicit val stockDecoder: EntityDecoder[IO, Stock] = jsonOf
+      val itemHttpService = ItemEndpoints.endpoints[IO](itemService, stockService, swaggerConf)
 
-    val item =
-      ItemEndpoints.ItemRequest(name = "Cheese Burger", price = 99.99, category = "Food & Drinks")
+      implicit val itemDecoder: EntityDecoder[IO, Item] = jsonOf
+      implicit val stockDecoder: EntityDecoder[IO, Stock] = jsonOf
 
-    val entry = ItemEndpoints.StockRequest(delta = -1)
+      val item =
+        ItemEndpoints.ItemRequest(name = "Cheese Burger", price = 99.99, category = "Food & Drinks")
 
-    (for {
-      createRequest <- Request[IO](Method.POST, Uri.uri("/")).withBody(item.asJson)
-      createResponse <- itemHttpService
-        .run(createRequest)
-        .getOrElse(fail(s"Request was not handled: $createRequest"))
-      createdItem <- createResponse.as[Item]
+      val entry = ItemEndpoints.StockRequest(delta = -1)
 
-      path = "/" + createdItem.id.map(_.value.toString).get + "/stocks"
+      for {
+        createRequest <- Request[IO](Method.POST, Uri.uri("/")).withBody(item.asJson)
+        createResponse <- itemHttpService
+          .run(createRequest)
+          .getOrElse(fail(s"Request was not handled: $createRequest"))
+        createdItem <- createResponse.as[Item]
 
-      getStockRequest = Request[IO](Method.GET, Uri.unsafeFromString(path))
+        path = "/" + createdItem.id.map(_.value.toString).get + "/stocks"
 
-      getStockResponse <- itemHttpService
-        .run(getStockRequest)
-        .getOrElse(fail(s"Request was not handled: $getStockRequest"))
-      stock <- getStockResponse.as[Stock]
+        getStockRequest = Request[IO](Method.GET, Uri.unsafeFromString(path))
 
-      negStockRequest <- Request[IO](Method.PUT, Uri.unsafeFromString(path)).withBody(entry.asJson)
-      negStockResponse <- itemHttpService
-        .run(negStockRequest)
-        .getOrElse(fail(s"Request was not handled: $negStockRequest"))
+        getStockResponse <- itemHttpService
+          .run(getStockRequest)
+          .getOrElse(fail(s"Request was not handled: $getStockRequest"))
+        stock <- getStockResponse.as[Stock]
 
-    } yield {
+        negStockRequest <- Request[IO](Method.PUT, Uri.unsafeFromString(path))
+          .withBody(entry.asJson)
+        negStockResponse <- itemHttpService
+          .run(negStockRequest)
+          .getOrElse(fail(s"Request was not handled: $negStockRequest"))
 
-      createResponse.status shouldEqual Created
-      stock.quantity shouldEqual 0
-      negStockResponse.status shouldEqual Conflict
-    }).unsafeRunSync
+        _ = createResponse.status shouldEqual Created
+        _ = stock.quantity shouldEqual 0
+        _ = negStockResponse.status shouldEqual Conflict
+      } yield {}
+    }
 
   }
 }
