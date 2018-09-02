@@ -3,7 +3,9 @@ packageSummary in Docker := "Restaurant stock management"
 
 dockerBaseImage := "openjdk:8-jre-alpine"
 
-version in Docker := "latest"
+dockerRepository := Some("amsayk")
+
+dockerUpdateLatest := true
 
 enablePlugins(AshScriptPlugin)
 
