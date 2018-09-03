@@ -3,7 +3,8 @@ packageSummary in Docker := "Restaurant stock management"
 
 dockerBaseImage := "openjdk:8-jre-alpine"
 
-dockerRepository := Some("amsayk")
+// Don't pull from dockerhub when building inside TRAVIS-CI
+dockerRepository := (if (sys.env.get("TRAVIS").isEmpty) Some("amsayk") else None)
 
 dockerUpdateLatest := true
 
@@ -12,3 +13,5 @@ enablePlugins(AshScriptPlugin)
 dockerExposedPorts := Seq(8080)
 
 dockerImageCreationTask := (publishLocal in Docker).value
+
+variablesForSubstitution := Map("VERSION" -> version.value)
