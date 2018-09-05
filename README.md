@@ -1,5 +1,4 @@
-Restoo
-======
+# Restoo &middot; [![Build Status](https://travis-ci.org/amsayk/restoo.svg)](https://travis-ci.org/amsayk/restoo)
 
 Restaurant stock management app.
 
