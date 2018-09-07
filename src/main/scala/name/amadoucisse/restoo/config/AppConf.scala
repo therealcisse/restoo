@@ -25,7 +25,7 @@ object AppConf {
    */
   def load[F[_]](implicit E: Sync[F]): F[AppConf] =
     E.delay(loadConfig[AppConf]("restoo")).flatMap {
-      case Right(ok) => E.pure(ok)
-      case Left(e) => E.raiseError(new ConfigReaderException[AppConf](e))
+      case Right(ok) ⇒ E.pure(ok)
+      case Left(e)   ⇒ E.raiseError(new ConfigReaderException[AppConf](e))
     }
 }

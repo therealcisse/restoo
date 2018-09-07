@@ -22,13 +22,13 @@ sealed trait JsonPatch {
   def value: Json
 
   final def applyOperation(json: Json): Json = this match {
-    case ReplaceOp(path, value) =>
-      json.mapObject { o =>
+    case ReplaceOp(path, value) ⇒
+      json.mapObject { o ⇒
         val key = removeLeadingSlash(path)
         if (o.contains(key)) o.add(key, value) else o
       }
 
-    case _ => json
+    case _ ⇒ json
   }
 }
 
@@ -41,13 +41,13 @@ object JsonPatch {
   def fromJson(json: Json): Vector[JsonPatch] = {
 
     def toJsonPatch(v: Json) = v.hcursor.get[String]("op") match {
-      case Right("replace") => v.as[ReplaceOp].toOption.toVector
-      case _ => Vector.empty[JsonPatch]
+      case Right("replace") ⇒ v.as[ReplaceOp].toOption.toVector
+      case _                ⇒ Vector.empty[JsonPatch]
     }
 
     if (json.isArray) json.asArray match {
-      case Some(xs) => xs.flatMap(toJsonPatch)
-      case _ => Vector.empty[JsonPatch]
+      case Some(xs) ⇒ xs.flatMap(toJsonPatch)
+      case _        ⇒ Vector.empty[JsonPatch]
     } else toJsonPatch(json)
   }
 

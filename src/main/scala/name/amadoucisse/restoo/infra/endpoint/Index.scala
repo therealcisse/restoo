@@ -18,18 +18,20 @@ class Index[F[_]: Effect] extends Http4sDsl[F] {
   val itemsSwaggerPath: Uri =
     Uri.unsafeFromString(s"/api/${SwaggerSpec.ApiVersion}/items/swagger-spec.json")
 
-  val service: HttpService[F] = HttpService[F] {
-    case GET -> Root =>
+  val routes: HttpRoutes[F] = HttpRoutes.of[F] {
+    case GET → Root ⇒
       TemporaryRedirect(
         Location(
           Uri
             .unsafeFromString(s"/assets/swagger-ui/${Info.SwaggerUIVersion}/index.html")
-            .withQueryParam("url", itemsSwaggerPath)))
+            .withQueryParam("url", itemsSwaggerPath)
+        )
+      )
 
   }
 
 }
 
 object Index {
-  def endpoints[F[_]: Effect]: HttpService[F] = new Index[F].service
+  def endpoints[F[_]: Effect]: HttpRoutes[F] = new Index[F].routes
 }

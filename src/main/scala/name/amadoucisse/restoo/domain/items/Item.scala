@@ -2,8 +2,8 @@ package name.amadoucisse.restoo
 package domain
 package items
 
-import io.circe.{Decoder, Encoder}
-import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
+import io.circe.{ Decoder, Encoder }
+import io.circe.generic.semiauto.{ deriveDecoder, deriveEncoder }
 
 @SuppressWarnings(Array("org.wartremover.warts.DefaultArguments"))
 final case class Item(

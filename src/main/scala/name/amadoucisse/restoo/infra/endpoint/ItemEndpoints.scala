@@ -3,27 +3,25 @@ package infra
 package endpoint
 
 import scala.language.higherKinds
-import cats.effect.Effect
-import cats.data.EitherT
+import cats.effect.Sync
 import cats.implicits._
 import io.circe.generic.auto._
 import io.circe.syntax._
 import org.http4s.circe._
 import org.http4s.dsl.Http4sDsl
-import org.http4s.{EntityDecoder, HttpService, QueryParamDecoder}
+import org.http4s.{ EntityDecoder, HttpRoutes, QueryParamDecoder }
 import domain._
 import domain.items._
 import domain.entries._
 import config.SwaggerConf
-import http.{HttpErrorHandler, JsonPatch, OrderBy, SortBy, SwaggerSpec}
-import service.{ItemService, StockService}
+import http.{ HttpErrorHandler, JsonPatch, OrderBy, SortBy, SwaggerSpec }
+import service.{ ItemService, StockService }
 import utils.Validation
 
 import eu.timepit.refined._
 import eu.timepit.refined.auto._
 
-final class ItemEndpoints[F[_]: Effect](implicit httpErrorHandler: HttpErrorHandler[F])
-    extends Http4sDsl[F] {
+final class ItemEndpoints[F[_]](implicit F: Sync[F]) extends Http4sDsl[F] {
   import ItemEndpoints._
 
   implicit val itemRequestDecoder: EntityDecoder[F, ItemRequest] = jsonOf
@@ -32,122 +30,118 @@ final class ItemEndpoints[F[_]: Effect](implicit httpErrorHandler: HttpErrorHand
 
   implicit val jsonPatchDecoder: EntityDecoder[F, Vector[JsonPatch]] = jsonOf
 
-  private def createEndpoint(itemService: ItemService[F]): HttpService[F] =
-    HttpService[F] {
-      case req @ POST -> Root =>
-        val action = for {
-          itemRequest <- EitherT.right[AppError](req.as[ItemRequest])
-
-          item <- EitherT.fromEither[F](itemRequest.validate)
-
-          result <- EitherT(itemService.createItem(item))
-
-        } yield result
-
+  private def createEndpoint(itemService: ItemService[F]): HttpRoutes[F] =
+    HttpRoutes.of[F] {
+      case req @ POST → Root ⇒
         for {
-          item <- action.value
-          resp <- item.fold(httpErrorHandler.handle, item => Created(item.asJson))
+          itemRequest ← req.as[ItemRequest]
+
+          item ← itemRequest.validate
+
+          result ← itemService.createItem(item)
+
+          resp ← Created(result.asJson)
         } yield resp
+
     }
 
-  private def updateEndpoint(itemService: ItemService[F]): HttpService[F] =
-    HttpService[F] {
-      case req @ PUT -> Root / ItemId(id) =>
-        val action = for {
-          itemRequest <- EitherT.right[AppError](req.as[ItemRequest])
-
-          item <- EitherT.fromEither[F](itemRequest.validate)
-
-          updated = item.copy(id = id.some)
-          result <- EitherT(itemService.update(updated))
-
-        } yield result
-
+  private def updateEndpoint(itemService: ItemService[F]): HttpRoutes[F] =
+    HttpRoutes.of[F] {
+      case req @ PUT → (Root / ItemId(id)) ⇒
         for {
-          item <- action.value
-          resp <- item.fold(httpErrorHandler.handle, item => Ok(item.asJson))
+          itemRequest ← req.as[ItemRequest]
+
+          item ← itemRequest.validate
+
+          toUpdate = item.copy(id = id.some)
+          result ← itemService.update(toUpdate)
+
+          resp ← Ok(result.asJson)
         } yield resp
+
     }
 
-  private def patchEndpoint(itemService: ItemService[F]): HttpService[F] = {
+  private def patchEndpoint(itemService: ItemService[F]): HttpRoutes[F] = {
 
     @annotation.tailrec
     def isValidJsonPatchForItem(patches: Vector[JsonPatch]): Boolean =
       patches match {
-        case xs :+ s =>
+        case xs :+ s ⇒
           refineV[Item.PatchableField](s.path) match {
-            case Right(_) => isValidJsonPatchForItem(xs)
-            case Left(_) => false
+            case Right(_) ⇒ isValidJsonPatchForItem(xs)
+            case Left(_)  ⇒ false
           }
 
-        case _ => true
+        case _ ⇒ true
       }
 
-    HttpService[F] {
-      case req @ PATCH -> Root / ItemId(id) =>
-        val action = for {
+    HttpRoutes.of[F] {
+      case req @ PATCH → (Root / ItemId(id)) ⇒
+        for {
 
-          patches <- EitherT
-            .right[AppError](req.as[Vector[JsonPatch]])
-            .ensureOr(_ => AppError.invalidJsonPatch("Invalid patch")) { patches =>
+          patches ← req
+            .as[Vector[JsonPatch]]
+            .ensureOr(_ ⇒ AppError.invalidJsonPatch) { patches ⇒
               patches.nonEmpty && isValidJsonPatchForItem(patches)
             }
 
-          item <- EitherT(itemService.getItem(id))
+          item ← itemService.getItem(id)
 
-          itemRequest <- EitherT.fromEither[F] {
+          itemRequest ← {
             val unitR = ItemRequest.fromItem(item)
 
-            patches
-              .foldLeft(unitR.asJson) { (input, patch) =>
-                patch.applyOperation(input)
-              }
-              .as[ItemRequest]
-              .leftMap(r => AppError.invalidJsonPatch(r.message))
+            val result = patches.foldLeft(unitR.asJson) { (input, patch) ⇒
+              patch.applyOperation(input)
+            }
+
+            val maybeItemRequest = result.as[ItemRequest]
+
+            maybeItemRequest.fold(
+              r ⇒
+                F.delay(scribe.error(s"Error : ${r.message}. Could not create request from json patch : $patches")) *> F
+                  .raiseError(AppError.invalidJsonPatch),
+              F.pure
+            )
           }
 
-          item <- EitherT.fromEither[F](itemRequest.validate)
+          item ← itemRequest.validate
 
           updated = item.copy(id = id.some)
-          result <- EitherT(itemService.update(updated))
+          result ← itemService.update(updated)
 
-        } yield result
-
-        for {
-          item <- action.value
-          resp <- item.fold(httpErrorHandler.handle, item => Ok(item.asJson))
+          resp ← Ok(result.asJson)
         } yield resp
+
     }
   }
 
-  private def listEndpoint(itemService: ItemService[F]): HttpService[F] = {
+  private def listEndpoint(itemService: ItemService[F]): HttpRoutes[F] = {
     implicit val categoryQueryParamDecoder: QueryParamDecoder[Category] =
       QueryParamDecoder[String].map(Category(_))
 
-    object OptionalCategoryQueryParamMatcher
-        extends OptionalQueryParamDecoderMatcher[Category]("category")
+    object OptionalCategoryQueryParamMatcher extends OptionalQueryParamDecoderMatcher[Category]("category")
 
     implicit val orderByQueryParamDecoder: QueryParamDecoder[List[SortBy]] =
       QueryParamDecoder[String].map(OrderBy.fromString)
 
-    object OptionalOrderByQueryParamMatcher
-        extends OptionalQueryParamDecoderMatcher[List[SortBy]]("sort_by")
+    object OptionalOrderByQueryParamMatcher extends OptionalQueryParamDecoderMatcher[List[SortBy]]("sort_by")
 
     @annotation.tailrec
     def isValidOrderByForItem(orderBy: Seq[SortBy]): Boolean =
       orderBy match {
-        case s :: xs =>
+        case s :: xs ⇒
           refineV[Item.SortableField](s.name.value) match {
-            case Right(_) => isValidOrderByForItem(xs)
-            case Left(_) => false
+            case Right(_) ⇒ isValidOrderByForItem(xs)
+            case Left(_)  ⇒ false
           }
 
-        case _ => true
+        case _ ⇒ true
       }
 
-    HttpService[F] {
-      case GET -> Root :? OptionalCategoryQueryParamMatcher(maybeCategory) :? OptionalOrderByQueryParamMatcher(
-            maybeOrderBy) =>
+    HttpRoutes.of[F] {
+      case GET → Root :? OptionalCategoryQueryParamMatcher(maybeCategory) :? OptionalOrderByQueryParamMatcher(
+            maybeOrderBy
+          ) ⇒
         val orderBy = maybeOrderBy.getOrElse(Nil)
 
         if (isValidOrderByForItem(orderBy)) {
@@ -158,78 +152,76 @@ final class ItemEndpoints[F[_]: Effect](implicit httpErrorHandler: HttpErrorHand
             fs2.Stream("[") ++
               items
                 .map(_.asJson.noSpaces)
-                .intersperse(",") ++ fs2.Stream("]"))
-        } else BadRequest()
+                .intersperse(",") ++ fs2.Stream("]")
+          )
+        } else F.delay(scribe.error(s"Invalid order by param : $orderBy")) *> BadRequest()
 
     }
   }
 
-  private def deleteItemEndpoint(itemService: ItemService[F]): HttpService[F] =
-    HttpService[F] {
-      case DELETE -> Root / ItemId(id) =>
+  private def deleteItemEndpoint(itemService: ItemService[F]): HttpRoutes[F] =
+    HttpRoutes.of[F] {
+      case DELETE → (Root / ItemId(id)) ⇒
         for {
-          _ <- itemService.deleteItem(id)
-          resp <- Ok()
+          _ ← itemService.deleteItem(id)
+          resp ← NoContent()
         } yield resp
     }
 
-  private def getItemEndpoint(itemService: ItemService[F]): HttpService[F] =
-    HttpService[F] {
-      case GET -> Root / ItemId(id) =>
+  private def getItemEndpoint(itemService: ItemService[F]): HttpRoutes[F] =
+    HttpRoutes.of[F] {
+      case GET → (Root / ItemId(id)) ⇒
         for {
-          item <- itemService.getItem(id)
-          resp <- item.fold(httpErrorHandler.handle, item => Ok(item.asJson))
+          item ← itemService.getItem(id)
+          resp ← Ok(item.asJson)
         } yield resp
     }
 
-  private def createStockEntryEndpoint(stockService: StockService[F]): HttpService[F] =
-    HttpService[F] {
-      case req @ PUT -> Root / ItemId(itemId) / "stocks" =>
+  private def createStockEntryEndpoint(stockService: StockService[F]): HttpRoutes[F] =
+    HttpRoutes.of[F] {
+      case req @ PUT → (Root / ItemId(itemId) / "stocks") ⇒
         for {
-          stockRequest <- req.as[StockRequest]
-          entry <- stockService.createEntry(itemId, Delta(stockRequest.delta)).value
-          resp <- entry.fold(httpErrorHandler.handle, entry => Ok(entry.asJson))
-        } yield resp
-
-    }
-
-  private def getStockEndpoint(stockService: StockService[F]): HttpService[F] =
-    HttpService[F] {
-      case GET -> Root / ItemId(itemId) / "stocks" =>
-        for {
-          stock <- stockService.getStock(itemId)
-          resp <- stock.fold(httpErrorHandler.handle, stock => Ok(stock.asJson))
+          stockRequest ← req.as[StockRequest]
+          stock ← stockService.createEntry(itemId, Delta(stockRequest.delta))
+          resp ← Ok(stock.asJson)
         } yield resp
     }
 
-  private def getSwaggerSpec(swaggerConf: SwaggerConf): HttpService[F] =
-    HttpService[F] {
-      case GET -> Root / "swagger-spec.json" =>
+  private def getStockEndpoint(stockService: StockService[F]): HttpRoutes[F] =
+    HttpRoutes.of[F] {
+      case GET → (Root / ItemId(itemId) / "stocks") ⇒
+        for {
+          stock ← stockService.getStock(itemId)
+          resp ← Ok(stock.asJson)
+        } yield resp
+    }
+
+  private def getSwaggerSpec(swaggerConf: SwaggerConf): HttpRoutes[F] =
+    HttpRoutes.of[F] {
+      case GET → (Root / "swagger-spec.json") ⇒
         Ok(SwaggerSpec.swaggerSpec(swaggerConf))
     }
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
-  def endpoints(
-      itemService: ItemService[F],
-      stockService: StockService[F],
-      swaggerConf: SwaggerConf): HttpService[F] =
-    createEndpoint(itemService) <+>
-      patchEndpoint(itemService) <+>
-      updateEndpoint(itemService) <+>
-      deleteItemEndpoint(itemService) <+>
-      getItemEndpoint(itemService) <+>
-      listEndpoint(itemService) <+>
-      createStockEntryEndpoint(stockService) <+>
-      getStockEndpoint(stockService) <+>
-      getSwaggerSpec(swaggerConf)
+  def endpoints(itemService: ItemService[F], stockService: StockService[F], swaggerConf: SwaggerConf)(
+      implicit H: HttpErrorHandler[F, AppError]
+  ): HttpRoutes[F] =
+    H.handle {
+      createEndpoint(itemService) <+>
+        patchEndpoint(itemService) <+>
+        updateEndpoint(itemService) <+>
+        deleteItemEndpoint(itemService) <+>
+        getItemEndpoint(itemService) <+>
+        listEndpoint(itemService) <+>
+        createStockEntryEndpoint(stockService) <+>
+        getStockEndpoint(stockService) <+>
+        getSwaggerSpec(swaggerConf)
+    }
 }
 
 object ItemEndpoints {
-  def endpoints[F[_]: Effect](
-      itemService: ItemService[F],
-      stockService: StockService[F],
-      swaggerConf: SwaggerConf,
-  )(implicit httpErrorHandler: HttpErrorHandler[F]): HttpService[F] =
+  def endpoints[F[_]: Sync](itemService: ItemService[F], stockService: StockService[F], swaggerConf: SwaggerConf)(
+      implicit H: HttpErrorHandler[F, AppError]
+  ): HttpRoutes[F] =
     new ItemEndpoints[F].endpoints(itemService, stockService, swaggerConf)
 
   final case class ItemRequest(
@@ -238,24 +230,23 @@ object ItemEndpoints {
       category: String,
   ) {
 
-    def validate: AppError Either Item = {
+    def validate[F[_]](implicit F: Sync[F]): F[Item] = {
       import Validation._
       import cats.data.ValidatedNel
       import eu.timepit.refined.collection.NonEmpty
       import eu.timepit.refined.numeric.NonNegative
 
-      @SuppressWarnings(Array("org.wartremover.warts.Any"))
       val item: ValidatedNel[FieldError, Item] = (
         refineV[NonEmpty](name)
-          .leftMap(_ => FieldError("item.name", "error.empty"))
+          .leftMap(_ ⇒ FieldError("item.name", "error.empty"))
           .toValidatedNel,
         refineV[NonNegative](price)
-          .leftMap(_ => FieldError("item.price", "error.negative"))
+          .leftMap(_ ⇒ FieldError("item.price", "error.negative"))
           .toValidatedNel,
         refineV[NonEmpty](category)
-          .leftMap(_ => FieldError("item.category", "error.empty"))
+          .leftMap(_ ⇒ FieldError("item.category", "error.empty"))
           .toValidatedNel,
-      ).mapN { (name, price, category) =>
+      ).mapN { (name, price, category) ⇒
         Item(
           name = Name(name),
           priceInCents = Cents.fromStandardAmount(price),
@@ -263,7 +254,7 @@ object ItemEndpoints {
         )
       }
 
-      item.leftMap(AppError.invalidEntity).toEither
+      item.fold(errors ⇒ F.raiseError(AppError.validationFailed(errors)), F.pure)
     }
   }
 

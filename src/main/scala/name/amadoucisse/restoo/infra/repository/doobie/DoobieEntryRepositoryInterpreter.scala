@@ -9,41 +9,28 @@ import doobie._
 import doobie.implicits._
 
 import domain.items.ItemId
-import domain.entries.{Entry, EntryId, EntryRepositoryAlgebra}
+import domain.entries.{ Entry, EntryId, EntryRepositoryAlgebra }
 
-private object EntrySQL extends SQLCommon {
+import queries.{ EntryQueries, ItemQueries }
 
-  def insert(entry: Entry): Update0 = sql"""
-    INSERT INTO entries (item_id, delta)
-    VALUES (${entry.itemId}, ${entry.delta})
-  """.update
+final class DoobieEntryRepositoryInterpreter[F[_]: Monad](val xa: Transactor[F]) extends EntryRepositoryAlgebra[F] {
 
-  def count(itemId: ItemId): Query0[Option[Long]] = sql"""
-    SELECT
-      SUM(delta) as quantity
-    FROM entries
-    WHERE item_id = $itemId
-  """.query[Option[Long]]
+  def create(entry: Entry): F[Entry] =
+    (EntryQueries
+      .insert(entry)
+      .withUniqueGeneratedKeys[Int]("id")
+      .map(id ⇒ entry.copy(id = EntryId(id).some)) <* ItemQueries.touch(entry.itemId).run)
+      .transact(xa)
 
-}
-
-final class DoobieEntryRepositoryInterpreter[F[_]: Monad](val xa: Transactor[F])
-    extends EntryRepositoryAlgebra[F] {
-
-  def create(entry: Entry): F[Entry] = {
-    val program = for {
-      res <- EntrySQL
-        .insert(entry)
-        .withUniqueGeneratedKeys[Int]("id")
-        .map(id => entry.copy(id = EntryId(id).some))
-
-      _ <- ItemSQL.touch(entry.itemId).run
-    } yield res
-
-    program.transact(xa)
-  }
-
-  def count(id: ItemId): F[Option[Long]] = EntrySQL.count(id).unique.transact(xa)
+  def count(id: ItemId): F[Long] =
+    EntryQueries
+      .count(id)
+      .unique
+      .flatMap {
+        case Some(len) ⇒ FC.pure(len)
+        case None      ⇒ FC.pure(0L)
+      }
+      .transact(xa)
 }
 
 object DoobieEntryRepositoryInterpreter {

@@ -20,23 +20,28 @@ class SortBySpec extends FunSuite with PropertyChecks with Matchers {
 
   test("some good cases") {
 
-    forAll(sortByFields) { name =>
+    forAll(sortByFields) { name ⇒
       OrderBy.fromString(NonEmptyString.unsafeFrom(name)) shouldEqual Seq(
-        SortBy(NonEmptyString.unsafeFrom(name), OrderBy.Ascending))
+        SortBy(NonEmptyString.unsafeFrom(name), OrderBy.Ascending)
+      )
 
       OrderBy.fromString(NonEmptyString.unsafeFrom("+" + name)) shouldEqual Seq(
-        SortBy(NonEmptyString.unsafeFrom(name), OrderBy.Ascending))
+        SortBy(NonEmptyString.unsafeFrom(name), OrderBy.Ascending)
+      )
 
       OrderBy.fromString(NonEmptyString.unsafeFrom("-" + name)) shouldEqual Seq(
-        SortBy(NonEmptyString.unsafeFrom(name), OrderBy.Descending))
+        SortBy(NonEmptyString.unsafeFrom(name), OrderBy.Descending)
+      )
 
       OrderBy.fromString(NonEmptyString.unsafeFrom("-" + name + "," + name.reverse)) shouldEqual Seq(
         SortBy(NonEmptyString.unsafeFrom(name), OrderBy.Descending),
-        SortBy(NonEmptyString.unsafeFrom(name.reverse), OrderBy.Ascending))
+        SortBy(NonEmptyString.unsafeFrom(name.reverse), OrderBy.Ascending)
+      )
 
       OrderBy.fromString(NonEmptyString.unsafeFrom("-" + name + ",+" + name.reverse)) shouldEqual Seq(
         SortBy(NonEmptyString.unsafeFrom(name), OrderBy.Descending),
-        SortBy(NonEmptyString.unsafeFrom(name.reverse), OrderBy.Ascending))
+        SortBy(NonEmptyString.unsafeFrom(name.reverse), OrderBy.Ascending)
+      )
     }
   }
 

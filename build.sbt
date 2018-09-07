@@ -1,34 +1,40 @@
 import ReleaseTransformations._
 import java.io.File
+import ScalafmtPlugin._
 
 organization    := "name.amadoucisse"
 name            := "restoo"
-scalaVersion    := "2.12.6"
+scalaVersion    := "2.12.7"
 
-val CatsVersion       = "1.2.0"
-val CirceVersion      = "0.9.3"
-val Http4sVersion     = "0.18.15"
+val CatsVersion       = "1.4.0"
+val CirceVersion      = "0.10.0"
+val MeowMTLVersion    = "0.1.3"
+val Http4sVersion     = "0.19.0"
 val ScalaCheckVersion = "1.14.0"
 val ScalaTestVersion  = "3.0.5"
-val DoobieVersion     = "0.5.3"
+val DoobieVersion     = "0.6.0-RC1"
 val H2Version         = "1.4.196"
-val FlywayVersion     = "5.1.4"
-val PureConfigVersion = "0.9.1"
+val FlywayVersion     = "5.2.0"
+val PureConfigVersion = "0.9.2"
 
 val LogbackVersion    = "1.2.3"
 
-val SwaggerUIVersion  = "3.17.6"
+val SwaggerUIVersion  = "3.19.0"
 
-val OpencensusHtt4sVersion   = "0.6.0"
-val OpencensusLoggingVersion = "0.15.0"
-val OpencensusZipkinVersion  = "0.15.0"
+//val OpencensusHttp4sVersion   = "0.6.0"
+//val OpencensusLoggingVersion = "0.15.1"
+//val OpencensusZipkinVersion  = "0.15.1"
+
+val ScribeVersion = "2.6.0"
 
 val RefinedVersion = "0.9.2"
 
 libraryDependencies ++= Seq(
   "org.typelevel"           %% "cats-core"              % CatsVersion,
 
-  "io.circe"                %% "circe-generic"          % CirceVersion,
+  "com.olegpy"              %% "meow-mtl"               % MeowMTLVersion,
+
+  "io.circe"                %% "circe-core"             % CirceVersion,
   "io.circe"                %% "circe-literal"          % CirceVersion,
   "io.circe"                %% "circe-generic-extras"   % CirceVersion,
   "io.circe"                %% "circe-optics"           % CirceVersion,
@@ -58,13 +64,15 @@ libraryDependencies ++= Seq(
 
   "org.webjars"             % "swagger-ui"              % SwaggerUIVersion,
 
-  "com.github.sebruck"      %% "opencensus-scala-http4s"              % OpencensusHtt4sVersion,
-  "io.opencensus"           % "opencensus-exporter-trace-logging"     % OpencensusLoggingVersion,
-  "io.opencensus"           % "opencensus-exporter-trace-zipkin"      % OpencensusZipkinVersion,
+//  "com.github.sebruck"      %% "opencensus-scala-http4s"              % OpencensusHttp4sVersion,
+//  "io.opencensus"           % "opencensus-exporter-trace-logging"     % OpencensusLoggingVersion,
+//  "io.opencensus"           % "opencensus-exporter-trace-zipkin"      % OpencensusZipkinVersion,
 
   "eu.timepit"              %% "refined"                              % RefinedVersion,
   "eu.timepit"              %% "refined-scalacheck"                   % RefinedVersion,
   "eu.timepit"              %% "refined-pureconfig"                   % RefinedVersion,
+
+  "com.outr"                %% "scribe"                               % ScribeVersion,
 )
 
 enablePlugins(ScalafmtPlugin, JavaAppPackaging, DockerComposePlugin, BuildInfoPlugin)
@@ -74,6 +82,8 @@ buildInfoPackage := organization.value + "." + name.value
 buildInfoObject := "Info"
 
 Defaults.itSettings
+
+inConfig(IntegrationTest)(scalafmtConfigSettings)
 
 lazy val root = project.in(file(".")).configs(IntegrationTest)
 
