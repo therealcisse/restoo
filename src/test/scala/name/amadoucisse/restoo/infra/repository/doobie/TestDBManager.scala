@@ -2,12 +2,14 @@ package name.amadoucisse.restoo
 package infra
 package repository.doobie
 
-import cats.effect.IO
-import doobie.h2.H2Transactor
+import cats.effect.{ ContextShift, IO }
 import doobie.util.transactor.Transactor
 import org.flywaydb.core.Flyway
 
+import scala.concurrent.ExecutionContext
+
 object TestDBManager {
+  private implicit val cs: ContextShift[IO] = IO.contextShift(ExecutionContext.global)
 
   private def testDbUrl(dbName: String): String =
     s"jdbc:h2:mem:test_sb_$dbName;MODE=PostgreSQL;DB_CLOSE_DELAY=-1"
@@ -15,13 +17,16 @@ object TestDBManager {
   private val testDbUser = "sa"
   private val testDbPass = ""
 
-  def xa(dbName: String): IO[Transactor[IO]] =
-    H2Transactor.newH2Transactor[IO](testDbUrl(dbName), testDbUser, testDbPass)
+  def xa(dbName: String): Transactor[IO] =
+    Transactor.fromDriverManager[IO]("org.h2.Driver", testDbUrl(dbName), testDbUser, testDbPass)
 
   def createTables(dbName: String): IO[Unit] =
     IO {
-      val flyway = new Flyway
-      flyway.setDataSource(testDbUrl(dbName), testDbUser, testDbPass)
+      val flyway = Flyway
+        .configure()
+        .dataSource(testDbUrl(dbName), testDbUser, testDbPass)
+        .load()
+
       flyway.migrate()
       ()
     }

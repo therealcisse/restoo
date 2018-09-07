@@ -14,18 +14,18 @@ trait Arbitraries {
 
   implicit val instant: Arbitrary[Instant] = Arbitrary[Instant] {
     for {
-      millis <- Gen.posNum[Long]
+      millis ← Gen.posNum[Long]
     } yield Instant.ofEpochMilli(millis)
   }
 
   implicit val item: Arbitrary[Item] = Arbitrary[Item] {
     for {
-      name <- arbitrary[String]
-      price <- arbitrary[NonNegDouble]
-      category <- arbitrary[String]
-      createdAt <- arbitrary[Instant]
-      updatedAt <- arbitrary[Instant]
-      id <- Gen.option(Gen.posNum[Int])
+      name ← arbitrary[String]
+      price ← arbitrary[NonNegDouble]
+      category ← arbitrary[String]
+      createdAt ← arbitrary[Instant]
+      updatedAt ← arbitrary[Instant]
+      id ← Gen.option(Gen.posNum[Int])
     } yield
       Item(
         Name(name),
@@ -39,10 +39,10 @@ trait Arbitraries {
 
   implicit val entry: Arbitrary[Entry] = Arbitrary[Entry] {
     for {
-      itemId <- Gen.posNum[Int]
-      delta <- Gen.choose(-10, 100)
-      timestamp <- arbitrary[Instant]
-      id <- Gen.option(Gen.posNum[Int])
+      itemId ← Gen.posNum[Int]
+      delta ← Gen.choose(-10, 100)
+      timestamp ← arbitrary[Instant]
+      id ← Gen.option(Gen.posNum[Int])
     } yield
       Entry(
         ItemId(itemId),

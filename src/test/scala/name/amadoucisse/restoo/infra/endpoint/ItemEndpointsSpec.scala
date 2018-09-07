@@ -6,32 +6,29 @@ import name.amadoucisse.restoo.config.SwaggerConf
 import domain.items._
 import domain.entries._
 import common.IOAssertion
-import service.{ItemService, StockService}
-import repository.inmemory.{EntryRepositoryInMemoryInterpreter, ItemRepositoryInMemoryInterpreter}
+import service.{ ItemService, StockService }
+import repository.inmemory.{ EntryRepositoryInMemoryInterpreter, ItemRepositoryInMemoryInterpreter }
 import cats.effect._
 import io.circe.generic.auto._
 import io.circe.syntax._
 import io.circe.literal._
 import io.circe.Json
-import http.{ApiResponseCodes, HttpErrorHandler}
+import http.{ ApiResponseCodes, AppHttpErrorHandler, HttpErrorHandler }
 import utils.Validation
 import org.http4s._
 import org.http4s.circe._
 import org.scalatest._
 import org.scalatest.prop.PropertyChecks
-
 import eu.timepit.refined.auto._
 import eu.timepit.refined.types.numeric.NonNegDouble
+import domain.AppError
+
+import com.olegpy.meow.hierarchy._
 
 @SuppressWarnings(Array("org.wartremover.warts.Throw", "org.wartremover.warts.OptionPartial"))
-class ItemEndpointsSpec
-    extends FunSuite
-    with Matchers
-    with PropertyChecks
-    with Arbitraries
-    with dsl.Http4sDsl[IO] {
+class ItemEndpointsSpec extends FunSuite with Matchers with PropertyChecks with Arbitraries with dsl.Http4sDsl[IO] {
 
-  implicit val httpErrorHandler: HttpErrorHandler[IO] = new HttpErrorHandler[IO]
+  implicit val H: HttpErrorHandler[IO, AppError] = new AppHttpErrorHandler[IO]
 
   test("add item") {
 
@@ -49,9 +46,10 @@ class ItemEndpointsSpec
       val item =
         ItemEndpoints.ItemRequest(name = "Item 0", price = 99.99, category = "Food & Drinks")
 
+      val request = Request[IO](Method.POST, Uri.uri("/")).withEntity(item.asJson)
+
       for {
-        request <- Request[IO](Method.POST, Uri.uri("/")).withBody(item.asJson)
-        response <- itemHttpService
+        response ← itemHttpService
           .run(request)
           .getOrElse(fail(s"Request was not handled: $request"))
         _ = response.status shouldEqual Created
@@ -83,38 +81,35 @@ class ItemEndpointsSpec
       for {
 
         // Add item A
-        request <- Request[IO](Method.POST, Uri.uri("/")).withBody(itemARequest.asJson)
-        response <- itemHttpService
+        request ← IO.pure(Request[IO](Method.POST, Uri.uri("/")).withEntity(itemARequest.asJson))
+        response ← itemHttpService
           .run(request)
           .getOrElse(fail(s"Request was not handled: $request"))
         _ = response.status shouldEqual Created
-        itemA <- response.as[Item]
+        itemA ← response.as[Item]
         _ = itemA.name shouldEqual Name(itemARequest.name)
 
         // Add item B
-        request <- Request[IO](Method.POST, Uri.uri("/")).withBody(itemBRequest.asJson)
-        response <- itemHttpService
+        request = Request[IO](Method.POST, Uri.uri("/")).withEntity(itemBRequest.asJson)
+        response ← itemHttpService
           .run(request)
           .getOrElse(fail(s"Request was not handled: $request"))
         _ = response.status shouldEqual Created
-        itemB <- response.as[Item]
+        itemB ← response.as[Item]
         _ = itemB.name shouldEqual Name(itemBRequest.name)
 
         // Try updating itemB's name to equal itemA's name
         itemToUpdate = itemBRequest.copy(name = itemA.name.value)
-        updateRequest <- Request[IO](
-          Method.PUT,
-          Uri.unsafeFromString("/" + itemB.id.map(_.value.toString).get))
-          .withBody(itemToUpdate.asJson)
-        updateResponse <- itemHttpService
+        updateRequest = Request[IO](Method.PUT, Uri.unsafeFromString("/" + itemB.id.map(_.value.toString).get))
+          .withEntity(itemToUpdate.asJson)
+        updateResponse ← itemHttpService
           .run(updateRequest)
           .getOrElse(fail(s"Request was not handled: $updateRequest"))
-        updatedItem <- updateResponse.as[Json]
+        updatedItem ← updateResponse.as[Json]
         _ = updateResponse.status shouldEqual Conflict
 
         errorResponse = updatedItem.hcursor.downField("error")
         _ = errorResponse.get[String]("code") shouldEqual Right(ApiResponseCodes.CONFLICT)
-        _ = errorResponse.get[String]("message") shouldEqual Right("Item name is taken")
         _ = errorResponse.get[String]("type") shouldEqual Right("DuplicateItem")
 
       } yield {}
@@ -142,8 +137,8 @@ class ItemEndpointsSpec
     IOAssertion {
 
       for {
-        request <- Request[IO](Method.POST, Uri.uri("/")).withBody(item.asJson)
-        response <- itemHttpService
+        request ← IO.pure(Request[IO](Method.POST, Uri.uri("/")).withEntity(item.asJson))
+        response ← itemHttpService
           .run(request)
           .getOrElse(fail(s"Request was not handled: $request"))
         _ = response.status shouldEqual Created
@@ -154,8 +149,8 @@ class ItemEndpointsSpec
     IOAssertion {
 
       for {
-        request <- Request[IO](Method.POST, Uri.uri("/")).withBody(item.asJson)
-        response <- itemHttpService
+        request ← IO.pure(Request[IO](Method.POST, Uri.uri("/")).withEntity(item.asJson))
+        response ← itemHttpService
           .run(request)
           .getOrElse(fail(s"Request was not handled: $request"))
 
@@ -164,7 +159,6 @@ class ItemEndpointsSpec
         responseEntity = response.as[Json].unsafeRunSync().hcursor.downField("error")
 
         _ = responseEntity.get[String]("code") shouldEqual Right(ApiResponseCodes.CONFLICT)
-        _ = responseEntity.get[String]("message") shouldEqual Right("Item already exists")
         _ = responseEntity.get[String]("type") shouldEqual Right("ItemAlreadyExists")
       } yield {}
     }
@@ -190,8 +184,8 @@ class ItemEndpointsSpec
     IOAssertion {
 
       for {
-        request <- Request[IO](Method.POST, Uri.uri("/")).withBody(item.asJson)
-        response <- itemHttpService
+        request ← IO.pure(Request[IO](Method.POST, Uri.uri("/")).withEntity(item.asJson))
+        response ← itemHttpService
           .run(request)
           .getOrElse(fail(s"Request was not handled: $request"))
 
@@ -199,11 +193,10 @@ class ItemEndpointsSpec
 
         responseEntity = response.as[Json].unsafeRunSync().hcursor
         _ = responseEntity.get[String]("code") shouldEqual Right(ApiResponseCodes.VALIDATION_FAILED)
-        _ = responseEntity.get[String]("message") shouldEqual Right("Validation failed")
         _ = responseEntity.get[String]("type") shouldEqual Right("FieldErrors")
         _ = responseEntity.get[Vector[Validation.FieldError]]("errors") match {
-          case Left(failure) => fail(failure.message)
-          case Right(errors) =>
+          case Left(failure) ⇒ fail(failure.message)
+          case Right(errors) ⇒
             errors.size shouldEqual 3
         }
       } yield {}
@@ -212,19 +205,20 @@ class ItemEndpointsSpec
     IOAssertion {
 
       for {
-        createRequest <- Request[IO](Method.POST, Uri.uri("/"))
-          .withBody(
-            ItemEndpoints.ItemRequest(name = "Name", price = 99.99, category = "Category").asJson)
-        createResponse <- itemHttpService
+        createRequest ← IO.pure(
+          Request[IO](Method.POST, Uri.uri("/"))
+            .withEntity(ItemEndpoints.ItemRequest(name = "Name", price = 99.99, category = "Category").asJson)
+        )
+        createResponse ← itemHttpService
           .run(createRequest)
           .getOrElse(fail(s"Request was not handled: $createRequest"))
-        createdItem <- createResponse.as[Item]
+        createdItem ← createResponse.as[Item]
 
         id = createdItem.id.map(_.value.toString).get
 
         // Invalid update
-        request <- Request[IO](Method.PUT, Uri.unsafeFromString("/" + id)).withBody(item.asJson)
-        response <- itemHttpService
+        request = Request[IO](Method.PUT, Uri.unsafeFromString("/" + id)).withEntity(item.asJson)
+        response ← itemHttpService
           .run(request)
           .getOrElse(fail(s"Request was not handled: $request"))
 
@@ -232,11 +226,10 @@ class ItemEndpointsSpec
 
         responseEntity = response.as[Json].unsafeRunSync().hcursor
         _ = responseEntity.get[String]("code") shouldEqual Right(ApiResponseCodes.VALIDATION_FAILED)
-        _ = responseEntity.get[String]("message") shouldEqual Right("Validation failed")
         _ = responseEntity.get[String]("type") shouldEqual Right("FieldErrors")
         _ = responseEntity.get[Vector[Validation.FieldError]]("errors") match {
-          case Left(failure) => fail(failure.message)
-          case Right(errors) =>
+          case Left(failure) ⇒ fail(failure.message)
+          case Right(errors) ⇒
             errors.size shouldEqual 3
         }
 
@@ -246,9 +239,9 @@ class ItemEndpointsSpec
           json"""{"op":"replace","path":"/price","value":${item.price}}""",
           json"""{"op":"replace","path":"/category","value":${item.category}}""",
         )
-        request <- Request[IO](Method.PATCH, Uri.unsafeFromString("/" + id))
-          .withBody(patches.asJson)
-        response <- itemHttpService
+        request = Request[IO](Method.PATCH, Uri.unsafeFromString("/" + id))
+          .withEntity(patches.asJson)
+        response ← itemHttpService
           .run(request)
           .getOrElse(fail(s"Request was not handled: $request"))
 
@@ -256,11 +249,10 @@ class ItemEndpointsSpec
 
         responseEntity = response.as[Json].unsafeRunSync().hcursor
         _ = responseEntity.get[String]("code") shouldEqual Right(ApiResponseCodes.VALIDATION_FAILED)
-        _ = responseEntity.get[String]("message") shouldEqual Right("Validation failed")
         _ = responseEntity.get[String]("type") shouldEqual Right("FieldErrors")
         _ = responseEntity.get[Vector[Validation.FieldError]]("errors") match {
-          case Left(failure) => fail(failure.message)
-          case Right(errors) =>
+          case Left(failure) ⇒ fail(failure.message)
+          case Right(errors) ⇒
             errors.size shouldEqual 3
         }
 
@@ -289,21 +281,19 @@ class ItemEndpointsSpec
         ItemEndpoints.ItemRequest(name = "Cheese Burger", price = 99.99, category = "Food & Drinks")
 
       for {
-        createRequest <- Request[IO](Method.POST, Uri.uri("/")).withBody(item.asJson)
-        createResponse <- itemHttpService
+        createRequest ← IO.pure(Request[IO](Method.POST, Uri.uri("/")).withEntity(item.asJson))
+        createResponse ← itemHttpService
           .run(createRequest)
           .getOrElse(fail(s"Request was not handled: $createRequest"))
-        createdItem <- createResponse.as[Item]
+        createdItem ← createResponse.as[Item]
 
         itemToUpdate = item.copy(name = createdItem.name.value.reverse)
-        updateRequest <- Request[IO](
-          Method.PUT,
-          Uri.unsafeFromString("/" + createdItem.id.map(_.value.toString).get))
-          .withBody(itemToUpdate.asJson)
-        updateResponse <- itemHttpService
+        updateRequest = Request[IO](Method.PUT, Uri.unsafeFromString("/" + createdItem.id.map(_.value.toString).get))
+          .withEntity(itemToUpdate.asJson)
+        updateResponse ← itemHttpService
           .run(updateRequest)
           .getOrElse(fail(s"Request was not handled: $updateRequest"))
-        updatedItem <- updateResponse.as[Item]
+        updatedItem ← updateResponse.as[Item]
 
         _ = createResponse.status shouldEqual Created
         _ = updateResponse.status shouldEqual Ok
@@ -334,48 +324,48 @@ class ItemEndpointsSpec
         ItemEndpoints.ItemRequest(name = "Cheese Burger", price = 99.99, category = "Food & Drinks")
 
       for {
-        createRequest <- Request[IO](Method.POST, Uri.uri("/")).withBody(item.asJson)
-        createResponse <- itemHttpService
+        createRequest ← IO.pure(Request[IO](Method.POST, Uri.uri("/")).withEntity(item.asJson))
+        createResponse ← itemHttpService
           .run(createRequest)
           .getOrElse(fail(s"Request was not handled: $createRequest"))
-        createdItem <- createResponse.as[Item]
+        createdItem ← createResponse.as[Item]
 
         id = createdItem.id.map(_.value.toString).get
 
         // patch name
         newName = "Cake"
         patchName = json"""{"op":"replace","path":"/name","value":$newName}"""
-        patchRequest <- Request[IO](Method.PATCH, Uri.unsafeFromString("/" + id))
-          .withBody(patchName)
-        patchResponse <- itemHttpService
+        patchRequest = Request[IO](Method.PATCH, Uri.unsafeFromString("/" + id))
+          .withEntity(patchName)
+        patchResponse ← itemHttpService
           .run(patchRequest)
           .getOrElse(fail(s"Request was not handled: $patchRequest"))
         _ = patchResponse.status shouldEqual Ok
-        patchedItem <- patchResponse.as[Item]
+        patchedItem ← patchResponse.as[Item]
         _ = patchedItem.name shouldEqual Name(newName)
 
         // patch price
         newPrice = NonNegDouble.unsafeFrom(50.99)
         patchPrice = json"""{"op":"replace","path":"/price","value":${newPrice.value}}"""
-        patchRequest <- Request[IO](Method.PATCH, Uri.unsafeFromString("/" + id))
-          .withBody(patchPrice)
-        patchResponse <- itemHttpService
+        patchRequest = Request[IO](Method.PATCH, Uri.unsafeFromString("/" + id))
+          .withEntity(patchPrice)
+        patchResponse ← itemHttpService
           .run(patchRequest)
           .getOrElse(fail(s"Request was not handled: $patchRequest"))
         _ = patchResponse.status shouldEqual Ok
-        patchedItem <- patchResponse.as[Item]
+        patchedItem ← patchResponse.as[Item]
         _ = patchedItem.priceInCents shouldEqual Cents.fromStandardAmount(newPrice)
 
         // patch category
         newCategory = "Dessert"
         patchCategory = json"""{"op":"replace","path":"/category","value":$newCategory}"""
-        patchRequest <- Request[IO](Method.PATCH, Uri.unsafeFromString("/" + id))
-          .withBody(patchCategory)
-        patchResponse <- itemHttpService
+        patchRequest = Request[IO](Method.PATCH, Uri.unsafeFromString("/" + id))
+          .withEntity(patchCategory)
+        patchResponse ← itemHttpService
           .run(patchRequest)
           .getOrElse(fail(s"Request was not handled: $patchRequest"))
         _ = patchResponse.status shouldEqual Ok
-        patchedItem <- patchResponse.as[Item]
+        patchedItem ← patchResponse.as[Item]
         _ = patchedItem.category shouldEqual Category(newCategory)
 
         // Revert all changes
@@ -384,16 +374,15 @@ class ItemEndpointsSpec
           json"""{"op":"replace","path":"/price","value":${item.price}}""",
           json"""{"op":"replace","path":"/category","value":${item.category}}""",
         )
-        patchRequest <- Request[IO](Method.PATCH, Uri.unsafeFromString("/" + id))
-          .withBody(patches.asJson)
-        patchResponse <- itemHttpService
+        patchRequest = Request[IO](Method.PATCH, Uri.unsafeFromString("/" + id))
+          .withEntity(patches.asJson)
+        patchResponse ← itemHttpService
           .run(patchRequest)
           .getOrElse(fail(s"Request was not handled: $patchRequest"))
         _ = patchResponse.status shouldEqual Ok
-        patchedItem <- patchResponse.as[Item]
+        patchedItem ← patchResponse.as[Item]
         _ = patchedItem.name shouldEqual Name(item.name)
-        _ = patchedItem.priceInCents shouldEqual Cents.fromStandardAmount(
-          NonNegDouble.unsafeFrom(item.price))
+        _ = patchedItem.priceInCents shouldEqual Cents.fromStandardAmount(NonNegDouble.unsafeFrom(item.price))
         _ = patchedItem.category shouldEqual Category(item.category)
       } yield {}
     }
@@ -420,25 +409,21 @@ class ItemEndpointsSpec
         ItemEndpoints.ItemRequest(name = "Item 0", price = 99.99, category = "Food & Drinks")
 
       for {
-        createRequest <- Request[IO](Method.POST, Uri.uri("/"))
-          .withBody(item.asJson)
-        createResponse <- itemHttpService
+        createRequest ← IO.pure(
+          Request[IO](Method.POST, Uri.uri("/"))
+            .withEntity(item.asJson)
+        )
+        createResponse ← itemHttpService
           .run(createRequest)
           .getOrElse(fail(s"Request was not handled: $createRequest"))
-        createdItem <- createResponse.as[Item]
+        createdItem ← createResponse.as[Item]
 
-        deleteResponse <- itemHttpService
-          .run(
-            Request[IO](
-              Method.DELETE,
-              Uri.unsafeFromString("/" + createdItem.id.map(_.value.toString).get)))
+        deleteResponse ← itemHttpService
+          .run(Request[IO](Method.DELETE, Uri.unsafeFromString("/" + createdItem.id.map(_.value.toString).get)))
           .getOrElse(fail(s"Delete request was not handled"))
 
-        getResponse <- itemHttpService
-          .run(
-            Request[IO](
-              Method.GET,
-              Uri.unsafeFromString("/" + createdItem.id.map(_.value.toString).get)))
+        getResponse ← itemHttpService
+          .run(Request[IO](Method.GET, Uri.unsafeFromString("/" + createdItem.id.map(_.value.toString).get)))
           .getOrElse(fail(s"Get request was not handled"))
 
         _ = createResponse.status shouldEqual Created
@@ -472,42 +457,42 @@ class ItemEndpointsSpec
       val entry = ItemEndpoints.StockRequest(delta = 1)
 
       for {
-        createRequest <- Request[IO](Method.POST, Uri.uri("/")).withBody(item.asJson)
-        createResponse <- itemHttpService
+        createRequest ← IO.pure(Request[IO](Method.POST, Uri.uri("/")).withEntity(item.asJson))
+        createResponse ← itemHttpService
           .run(createRequest)
           .getOrElse(fail(s"Request was not handled: $createRequest"))
-        createdItem <- createResponse.as[Item]
+        createdItem ← createResponse.as[Item]
 
         path = "/" + createdItem.id.map(_.value.toString).get + "/stocks"
 
         getStockRequest = Request[IO](Method.GET, Uri.unsafeFromString(path))
 
-        getStock0Response <- itemHttpService
+        getStock0Response ← itemHttpService
           .run(getStockRequest)
           .getOrElse(fail(s"Request was not handled: $getStockRequest"))
-        stock0 <- getStock0Response.as[Stock]
+        stock0 ← getStock0Response.as[Stock]
 
-        addStockRequest <- Request[IO](Method.PUT, Uri.unsafeFromString(path))
-          .withBody(entry.asJson)
-        _ <- itemHttpService
+        addStockRequest = Request[IO](Method.PUT, Uri.unsafeFromString(path))
+          .withEntity(entry.asJson)
+        _ ← itemHttpService
           .run(addStockRequest)
           .getOrElse(fail(s"Request was not handled: $addStockRequest"))
 
-        getStock1Response <- itemHttpService
+        getStock1Response ← itemHttpService
           .run(getStockRequest)
           .getOrElse(fail(s"Request was not handled: $getStockRequest"))
-        stock1 <- getStock1Response.as[Stock]
+        stock1 ← getStock1Response.as[Stock]
 
-        removeStockRequest <- Request[IO](Method.PUT, Uri.unsafeFromString(path))
-          .withBody(entry.copy(delta = -1 * entry.delta).asJson)
-        _ <- itemHttpService
+        removeStockRequest = Request[IO](Method.PUT, Uri.unsafeFromString(path))
+          .withEntity(entry.copy(delta = -1 * entry.delta).asJson)
+        _ ← itemHttpService
           .run(removeStockRequest)
           .getOrElse(fail(s"Request was not handled: $removeStockRequest"))
 
-        getStock2Response <- itemHttpService
+        getStock2Response ← itemHttpService
           .run(getStockRequest)
           .getOrElse(fail(s"Request was not handled: $getStockRequest"))
-        stock2 <- getStock2Response.as[Stock]
+        stock2 ← getStock2Response.as[Stock]
 
         _ = createResponse.status shouldEqual Created
         _ = stock0.quantity shouldEqual 0
@@ -542,24 +527,24 @@ class ItemEndpointsSpec
       val entry = ItemEndpoints.StockRequest(delta = -1)
 
       for {
-        createRequest <- Request[IO](Method.POST, Uri.uri("/")).withBody(item.asJson)
-        createResponse <- itemHttpService
+        createRequest ← IO.pure(Request[IO](Method.POST, Uri.uri("/")).withEntity(item.asJson))
+        createResponse ← itemHttpService
           .run(createRequest)
           .getOrElse(fail(s"Request was not handled: $createRequest"))
-        createdItem <- createResponse.as[Item]
+        createdItem ← createResponse.as[Item]
 
         path = "/" + createdItem.id.map(_.value.toString).get + "/stocks"
 
         getStockRequest = Request[IO](Method.GET, Uri.unsafeFromString(path))
 
-        getStockResponse <- itemHttpService
+        getStockResponse ← itemHttpService
           .run(getStockRequest)
           .getOrElse(fail(s"Request was not handled: $getStockRequest"))
-        stock <- getStockResponse.as[Stock]
+        stock ← getStockResponse.as[Stock]
 
-        negStockRequest <- Request[IO](Method.PUT, Uri.unsafeFromString(path))
-          .withBody(entry.asJson)
-        negStockResponse <- itemHttpService
+        negStockRequest = Request[IO](Method.PUT, Uri.unsafeFromString(path))
+          .withEntity(entry.asJson)
+        negStockResponse ← itemHttpService
           .run(negStockRequest)
           .getOrElse(fail(s"Request was not handled: $negStockRequest"))
 

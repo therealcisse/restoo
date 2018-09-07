@@ -3,7 +3,7 @@ package infra.config
 
 import cats.effect.IO
 import config.AppConf
-import org.scalatest.{FunSuite, Matchers}
+import org.scalatest.{ FunSuite, Matchers }
 
 class AppConfSpec extends FunSuite with Matchers {
 

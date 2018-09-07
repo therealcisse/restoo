@@ -20,9 +20,9 @@ object OrderBy {
     jv.split(",")
       .toList
       .collect {
-        case SortByPattern("-", NonEmptyString(name)) => SortBy(name, Descending)
-        case SortByPattern("+", NonEmptyString(name)) => SortBy(name, Ascending)
-        case SortByPattern("", NonEmptyString(name)) => SortBy(name, Ascending)
+        case SortByPattern("-", NonEmptyString(name)) ⇒ SortBy(name, Descending)
+        case SortByPattern("+", NonEmptyString(name)) ⇒ SortBy(name, Ascending)
+        case SortByPattern("", NonEmptyString(name))  ⇒ SortBy(name, Ascending)
       }
 
 }

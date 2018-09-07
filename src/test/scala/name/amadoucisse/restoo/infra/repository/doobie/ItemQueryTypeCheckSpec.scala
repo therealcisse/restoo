@@ -3,11 +3,12 @@ package infra
 package repository.doobie
 
 import cats.effect.IO
-import domain.items.{Category, ItemId, Name}
-import http.{OrderBy, SortBy}
+import domain.items.{ Category, ItemId, Name }
+import http.{ OrderBy, SortBy }
 import eu.timepit.refined.auto._
 import Arbitraries.item
 import common.IOAssertion
+import queries.ItemQueries
 
 class ItemQueryTypeCheckSpec extends RepositorySpec {
   override def testDbName: String = getClass.getSimpleName
@@ -17,9 +18,9 @@ class ItemQueryTypeCheckSpec extends RepositorySpec {
   test("NOT find by name") {
     IOAssertion {
       for {
-        rs <- repo.findByName(Name("Some item"))
+        _ ← repo.findByName(Name("Some item"))
       } yield {
-        assert(rs.isEmpty)
+        fail()
       }
     }
   }
@@ -27,9 +28,9 @@ class ItemQueryTypeCheckSpec extends RepositorySpec {
   test("NOT list any") {
     IOAssertion {
       for {
-        rs <- repo.list(None, Nil).compile.toList
+        _ ← repo.list(None, Nil).compile.toList
       } yield {
-        assert(rs.isEmpty)
+        fail()
       }
     }
   }
@@ -37,34 +38,49 @@ class ItemQueryTypeCheckSpec extends RepositorySpec {
   test("NOT find by id") {
     IOAssertion {
       for {
-        rs <- repo.get(ItemId(1))
+        _ ← repo.get(ItemId(1))
       } yield {
-        assert(rs.isEmpty)
+        fail()
+      }
+    }
+  }
+
+  test("Always delete") {
+    IOAssertion {
+      for {
+        _ ← repo.delete(ItemId(1))
+      } yield {
+        fail()
       }
     }
   }
 
   test("Typecheck item queries") {
-    item.arbitrary.sample.map { u =>
-      check(ItemSQL.insert(u))
-      check(ItemSQL.byName(u.name))
-      u.id.foreach(id => check(ItemSQL.update(u, id)))
+    item.arbitrary.sample.map { u ⇒
+      check(ItemQueries.insert(u))
+      check(ItemQueries.byName(u.name))
+      u.id.foreach(id ⇒ check(ItemQueries.update(u, id)))
     }
-    check(ItemSQL.selectAll(None, Nil))
+    check(ItemQueries.selectAll(None, Nil))
     check(
-      ItemSQL.selectAll(
+      ItemQueries.selectAll(
         None,
         Seq(
           SortBy("created_at", OrderBy.Descending),
           SortBy("updated_at", OrderBy.Ascending),
-          SortBy("name", OrderBy.Descending))))
-    check(ItemSQL.selectAll(Some(Category("category")), Nil))
+          SortBy("name", OrderBy.Descending)
+        )
+      )
+    )
+    check(ItemQueries.selectAll(Some(Category("category")), Nil))
     check(
-      ItemSQL.selectAll(
+      ItemQueries.selectAll(
         Some(Category("category")),
-        Seq(SortBy("name", OrderBy.Descending), SortBy("category", OrderBy.Ascending))))
-    check(ItemSQL.select(ItemId(1)))
-    check(ItemSQL.delete(ItemId(1)))
-    check(ItemSQL.touch(ItemId(1)))
+        Seq(SortBy("name", OrderBy.Descending), SortBy("category", OrderBy.Ascending))
+      )
+    )
+    check(ItemQueries.select(ItemId(1)))
+    check(ItemQueries.delete(ItemId(1)))
+    check(ItemQueries.touch(ItemId(1)))
   }
 }
