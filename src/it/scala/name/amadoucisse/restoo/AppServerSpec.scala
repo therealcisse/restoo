@@ -48,7 +48,14 @@ class AppServerSpec extends FunSpec with Matchers with ScalaFutures with Integra
     it("should do CRUD properly") {
       withClient { httpClient ⇒
         for {
-          itemRequest ← IO.pure(ItemRequest(name = "name", priceInCents = 199, currency = "MAD", category = "category"))
+          itemRequest ← IO.pure(
+            ItemRequest(
+              name = "name",
+              priceInCents = 199,
+              currency = "MAD",
+              category = "category"
+            )
+          )
 
           req = Request[IO](Method.POST, uri("items"))
             .withEntity(itemRequest.asJson)
@@ -65,8 +72,6 @@ class AppServerSpec extends FunSpec with Matchers with ScalaFutures with Integra
           _ = listOfItems.size shouldBe 1
           _ = listOfItems should contain(item)
 
-          _ = println("2 passed")
-
           // list: filter by category
           listOfItems ← httpClient.expect[Seq[Item]](
             Request[IO](
@@ -78,8 +83,6 @@ class AppServerSpec extends FunSpec with Matchers with ScalaFutures with Integra
           )
           _ = listOfItems.size shouldBe 1
           _ = listOfItems should contain(item)
-
-          _ = println("3 passed")
 
           // list: filter by unknown category
           listOfItems ← httpClient.expect[Seq[Item]](
