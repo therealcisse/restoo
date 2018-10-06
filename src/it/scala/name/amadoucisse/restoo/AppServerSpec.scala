@@ -1,13 +1,16 @@
 package name.amadoucisse.restoo
 
+import java.util.concurrent.Executors
+
 import cats.effect.{ ContextShift, IO }
-import eu.timepit.refined.types.numeric.NonNegDouble
+import eu.timepit.refined.types.numeric.NonNegInt
 import domain.items._
 import domain.entries._
 import infra.endpoint.ItemEndpoints.{ ItemRequest, StockRequest }
 import io.circe.generic.auto._
 import io.circe.literal._
 import org.http4s.circe._
+import io.circe.syntax._
 import org.scalatest.concurrent.{ IntegrationPatience, ScalaFutures }
 import org.scalatest.{ BeforeAndAfterAll, FunSpec, Matchers }
 import org.http4s._
@@ -23,19 +26,14 @@ class AppServerSpec extends FunSpec with Matchers with ScalaFutures with Integra
   private val serverAccess = sys.props.get("restoo:8080").value
 
   private def withClient[A](f: Client[IO] ⇒ IO[A]) =
-    BlazeClientBuilder
-      .apply[IO](ExecutionContext.global)
-      .resource
+    BlazeClientBuilder[IO](ExecutionContext.fromExecutor(Executors.newCachedThreadPool())).resource
       .use(f)
-      .unsafeRunSync()
 
   describe("items endpoints") {
 
     implicit val itemDecoder: EntityDecoder[IO, Item] = jsonOf
     implicit val itemOptDecoder: EntityDecoder[IO, Option[Item]] = jsonOf
     implicit val itemsDecoder: EntityDecoder[IO, Seq[Item]] = jsonOf
-    implicit val itemRequestEncoder: EntityEncoder[IO, ItemRequest] = jsonEncoderOf
-    implicit val stockRequestEncoder: EntityEncoder[IO, StockRequest] = jsonEncoderOf
     implicit val stockDecoder: EntityDecoder[IO, Stock] = jsonOf
 
     it("should work initially be empty when there are no items") {
@@ -49,13 +47,14 @@ class AppServerSpec extends FunSpec with Matchers with ScalaFutures with Integra
 
     it("should do CRUD properly") {
       withClient { httpClient ⇒
-        (for {
-          itemRequest ← IO.pure(ItemRequest("name", 1.99, "category"))
-          req = Request[IO](Method.POST, uri("items").withQueryParam("sort_by", "-updated_at,name"))
-            .withEntity(itemRequest)
+        for {
+          itemRequest ← IO.pure(ItemRequest(name = "name", priceInCents = 199, currency = "MAD", category = "category"))
+
+          req = Request[IO](Method.POST, uri("items"))
+            .withEntity(itemRequest.asJson)
           item ← httpClient.expect[Item](req)
           items ← httpClient
-            .expect[Seq[Item]](uri("items"))
+            .expect[Seq[Item]](uri("items").withQueryParam("sort_by", "-updated_at,name"))
           _ = items.size shouldBe 1
           _ = items should contain(item)
 
@@ -66,16 +65,21 @@ class AppServerSpec extends FunSpec with Matchers with ScalaFutures with Integra
           _ = listOfItems.size shouldBe 1
           _ = listOfItems should contain(item)
 
+          _ = println("2 passed")
+
           // list: filter by category
           listOfItems ← httpClient.expect[Seq[Item]](
             Request[IO](
               Method.GET,
               uri("items")
+                .withQueryParam("sort_by", "-updated_at,name")
                 .withQueryParam("category", itemRequest.category)
             )
           )
           _ = listOfItems.size shouldBe 1
           _ = listOfItems should contain(item)
+
+          _ = println("3 passed")
 
           // list: filter by unknown category
           listOfItems ← httpClient.expect[Seq[Item]](
@@ -90,19 +94,19 @@ class AppServerSpec extends FunSpec with Matchers with ScalaFutures with Integra
           updatedItemRequest = itemRequest.copy(name = "heyo")
           updatedItem ← httpClient.expect[Item](
             Request[IO](Method.PUT, uri(s"items/${item.id.value.value}"))
-              .withEntity(updatedItemRequest)
+              .withEntity(updatedItemRequest.asJson)
           )
           retrieved ← httpClient.expect[Option[Item]](uri(s"items/${item.id.value.value}"))
           _ = retrieved.value shouldBe updatedItem
 
           // change price
-          newPrice = NonNegDouble.unsafeFrom(3.99)
-          patchPrice = json"""{"op":"replace","path":"/price","value":${newPrice.value}}"""
+          newPrice = NonNegInt.unsafeFrom(399)
+          patchPrice = json"""{"op":"replace","path":"/priceInCents","value":${newPrice.value}}"""
           patchedItem ← httpClient.expect[Item](
             Request[IO](Method.PATCH, uri(s"items/${item.id.value.value}"))
               .withEntity(patchPrice)
           )
-          _ = patchedItem.priceInCents shouldEqual Cents.fromStandardAmount(newPrice)
+          _ = patchedItem.price.amountInCents shouldEqual newPrice
           retrieved ← httpClient.expect[Option[Item]](uri(s"items/${item.id.value.value}"))
           _ = retrieved.value shouldBe patchedItem
 
@@ -131,7 +135,7 @@ class AppServerSpec extends FunSpec with Matchers with ScalaFutures with Integra
           stockRequest = StockRequest(delta = 10)
           stock ← httpClient.expect[Stock](
             Request[IO](Method.PUT, uri(s"items/${item.id.value.value}/stocks"))
-              .withEntity(stockRequest)
+              .withEntity(stockRequest.asJson)
           )
           _ = stock.item.id shouldBe item.id
           _ = stock.quantity shouldBe 10
@@ -139,7 +143,7 @@ class AppServerSpec extends FunSpec with Matchers with ScalaFutures with Integra
           stockRequest = StockRequest(delta = -3)
           stock ← httpClient.expect[Stock](
             Request[IO](Method.PUT, uri(s"items/${item.id.value.value}/stocks"))
-              .withEntity(stockRequest)
+              .withEntity(stockRequest.asJson)
           )
           _ = stock.item.id shouldBe item.id
           _ = stock.quantity shouldBe 7
@@ -147,9 +151,7 @@ class AppServerSpec extends FunSpec with Matchers with ScalaFutures with Integra
           _ ← httpClient.expect[Unit](Request[IO](Method.DELETE, uri(s"items/${item.id.value.value}")))
           retrieveStatus ← httpClient.status(Request[IO](Method.GET, uri(s"items/${item.id.value.value}")))
           _ = retrieveStatus shouldBe Status.NotFound
-        } yield ()).unsafeRunSync()
-
-        IO.unit
+        } yield ()
       }
     }
 

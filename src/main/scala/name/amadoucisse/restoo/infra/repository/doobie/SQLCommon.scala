@@ -9,7 +9,7 @@ import java.time.Instant
 import doobie.Meta
 
 import domain.OccurredAt
-import domain.items.{ Category, Cents, ItemId, Name }
+import domain.items.{ Category, ItemId, Name }
 import domain.entries.{ Delta, EntryId }
 
 private trait SQLCommon {
@@ -19,9 +19,6 @@ private trait SQLCommon {
 
   implicit val NameMeta: Meta[Name] =
     Meta[String].timap[Name](x ⇒ Name(x))(_.value)
-
-  implicit val CentsMeta: Meta[Cents] =
-    Meta[Int].timap[Cents](x ⇒ Cents(x))(_.value)
 
   implicit val ItemIdMeta: Meta[ItemId] =
     Meta[Int].timap[ItemId](x ⇒ ItemId(x))(_.value)

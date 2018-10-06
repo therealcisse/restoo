@@ -226,7 +226,8 @@ object ItemEndpoints {
 
   final case class ItemRequest(
       name: String,
-      price: Double,
+      priceInCents: Int,
+      currency: String,
       category: String,
   ) {
 
@@ -240,16 +241,19 @@ object ItemEndpoints {
         refineV[NonEmpty](name)
           .leftMap(_ ⇒ FieldError("item.name", "error.empty"))
           .toValidatedNel,
-        refineV[NonNegative](price)
-          .leftMap(_ ⇒ FieldError("item.price", "error.negative"))
+        refineV[NonNegative](priceInCents)
+          .leftMap(_ ⇒ FieldError("item.priceInCents", "error.negative"))
+          .toValidatedNel,
+        refineV[Money.CurrencyCode](currency)
+          .leftMap(_ ⇒ FieldError("item.currency", "error.currency"))
           .toValidatedNel,
         refineV[NonEmpty](category)
           .leftMap(_ ⇒ FieldError("item.category", "error.empty"))
           .toValidatedNel,
-      ).mapN { (name, price, category) ⇒
+      ).mapN { (name, priceInCents, currency, category) ⇒
         Item(
           name = Name(name),
-          priceInCents = Cents.fromStandardAmount(price),
+          price = Money(priceInCents, currency),
           category = Category(category),
         )
       }
@@ -263,7 +267,8 @@ object ItemEndpoints {
     def fromItem(item: Item) =
       ItemRequest(
         name = item.name.value,
-        price = item.priceInCents.toDouble,
+        priceInCents = item.price.amountInCents,
+        currency = item.price.currency,
         category = item.category.value,
       )
 

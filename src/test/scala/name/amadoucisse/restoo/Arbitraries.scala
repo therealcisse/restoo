@@ -3,10 +3,12 @@ package name.amadoucisse.restoo
 import java.time.Instant
 
 import eu.timepit.refined.scalacheck.numeric._
-import eu.timepit.refined.types.numeric.NonNegDouble
+import eu.timepit.refined.types.numeric.NonNegInt
 import domain._
 import domain.entries._
 import domain.items._
+import eu.timepit.refined.api.Refined
+import eu.timepit.refined.auto._
 import org.scalacheck._
 import org.scalacheck.Arbitrary.arbitrary
 
@@ -21,7 +23,7 @@ trait Arbitraries {
   implicit val item: Arbitrary[Item] = Arbitrary[Item] {
     for {
       name ← arbitrary[String]
-      price ← arbitrary[NonNegDouble]
+      price ← arbitrary[NonNegInt]
       category ← arbitrary[String]
       createdAt ← arbitrary[Instant]
       updatedAt ← arbitrary[Instant]
@@ -29,7 +31,7 @@ trait Arbitraries {
     } yield
       Item(
         Name(name),
-        Cents.fromStandardAmount(price),
+        Money(price, Refined.unsafeApply("MAD")),
         Category(category),
         OccurredAt(createdAt),
         OccurredAt(updatedAt),
