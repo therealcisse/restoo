@@ -25,9 +25,9 @@ class JsonPatchSpec extends FunSuite with PropertyChecks with Matchers {
 
   test("parse replace op") {
 
-    JsonPatch.fromJson(json"""{"op":"replace","path":"/price","value":99.99}""") shouldEqual Vector(
+    JsonPatch.fromJson(json"""{"op":"replace","path":"/priceInCents","value":9999}""") shouldEqual Vector(
       JsonPatch
-        .ReplaceOp(path = "/price", value = Json.fromDoubleOrNull(99.99))
+        .ReplaceOp(path = "/priceInCents", value = Json.fromInt(9999))
     )
   }
 

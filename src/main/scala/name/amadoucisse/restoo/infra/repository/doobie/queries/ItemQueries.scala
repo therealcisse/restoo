@@ -13,8 +13,8 @@ import http.{ OrderBy, SortBy }
 private[doobie] object ItemQueries extends SQLCommon {
 
   def insert(item: Item): Update0 = sql"""
-    INSERT INTO items (name, price_in_cents, category, created_at, updated_at)
-    VALUES (${item.name}, ${item.priceInCents}, ${item.category}, ${item.createdAt}, ${item.updatedAt})
+    INSERT INTO items (name, price_in_cents, currency, category, created_at, updated_at)
+    VALUES (${item.name}, ${item.price.amountInCents}, ${item.price.currency}, ${item.category}, ${item.createdAt}, ${item.updatedAt})
   """.update
 
   def touch(id: ItemId): Update0 = sql"""
@@ -28,7 +28,8 @@ private[doobie] object ItemQueries extends SQLCommon {
     UPDATE items
     SET
       name = ${item.name},
-      price_in_cents = ${item.priceInCents},
+      price_in_cents = ${item.price.amountInCents},
+      currency = ${item.price.currency},
       category = ${item.category},
       updated_at = ${item.updatedAt}
     WHERE id = $id
@@ -38,6 +39,7 @@ private[doobie] object ItemQueries extends SQLCommon {
     SELECT
       name,
       price_in_cents,
+      currency,
       category,
       created_at,
       updated_at,
@@ -50,6 +52,7 @@ private[doobie] object ItemQueries extends SQLCommon {
     SELECT
       name,
       price_in_cents,
+      currency,
       category,
       created_at,
       updated_at,
@@ -68,6 +71,7 @@ private[doobie] object ItemQueries extends SQLCommon {
     SELECT
       name,
       price_in_cents,
+      currency,
       category,
       created_at,
       updated_at,

@@ -55,7 +55,7 @@ class StockServiceSpec extends WordSpec with MustMatchers {
       case `existingItemId` ⇒
         Item(
           name = Name("Some item name"),
-          priceInCents = Cents.fromStandardAmount(99.9),
+          price = Money(999, "MAD"),
           category = Category("Some category"),
           id = existingItemId.some
         ).pure[IO]

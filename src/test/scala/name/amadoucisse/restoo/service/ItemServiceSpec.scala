@@ -13,7 +13,7 @@ class ItemServiceSpec extends WordSpec with MustMatchers {
   val newItemId = ItemId(1)
 
   val expectedName = Name("Item name")
-  val expectedPrice = Cents.fromStandardAmount(99.9)
+  val expectedPrice = Money(999, "MAD")
   val expectedCategory = Category("Category")
 
   val existingName = Name("Item existing name")
@@ -27,7 +27,7 @@ class ItemServiceSpec extends WordSpec with MustMatchers {
           p.createItem(
               Item(
                 name = expectedName,
-                priceInCents = expectedPrice,
+                price = expectedPrice,
                 category = expectedCategory,
               )
             )
@@ -44,7 +44,7 @@ class ItemServiceSpec extends WordSpec with MustMatchers {
           p.createItem(
               Item(
                 name = existingName,
-                priceInCents = expectedPrice,
+                price = expectedPrice,
                 category = expectedCategory,
               )
             )
@@ -66,7 +66,7 @@ class ItemServiceSpec extends WordSpec with MustMatchers {
           p.update(
               Item(
                 name = expectedName,
-                priceInCents = expectedPrice,
+                price = expectedPrice,
                 category = expectedCategory,
               )
             )
@@ -83,7 +83,7 @@ class ItemServiceSpec extends WordSpec with MustMatchers {
           p.update(
               Item(
                 name = existingName,
-                priceInCents = expectedPrice,
+                price = expectedPrice,
                 category = expectedCategory,
               )
             )
@@ -97,11 +97,11 @@ class ItemServiceSpec extends WordSpec with MustMatchers {
   }
 
   final class ItemRepositoryAlgebraImpl extends ItemRepositoryAlgebra[IO] {
-    def create(item: Item): IO[Item] = (item.name, item.priceInCents, item.category) match {
+    def create(item: Item): IO[Item] = (item.name, item.price, item.category) match {
       case (`expectedName`, `expectedPrice`, `expectedCategory`) ⇒
         Item(
           name = expectedName,
-          priceInCents = expectedPrice,
+          price = expectedPrice,
           category = expectedCategory,
           id = newItemId.some
         ).pure[IO]
@@ -111,11 +111,11 @@ class ItemServiceSpec extends WordSpec with MustMatchers {
       case _ ⇒ IO.raiseError(new RuntimeException("Unexpected parameter"))
     }
 
-    def update(item: Item): IO[Item] = (item.name, item.priceInCents, item.category) match {
+    def update(item: Item): IO[Item] = (item.name, item.price, item.category) match {
       case (`expectedName`, `expectedPrice`, `expectedCategory`) ⇒
         Item(
           name = expectedName,
-          priceInCents = expectedPrice,
+          price = expectedPrice,
           category = expectedCategory,
           id = newItemId.some
         ).pure[IO]
@@ -128,7 +128,7 @@ class ItemServiceSpec extends WordSpec with MustMatchers {
     def get(id: ItemId): IO[Item] =
       Item(
         name = expectedName,
-        priceInCents = expectedPrice,
+        price = expectedPrice,
         category = expectedCategory,
         id = newItemId.some
       ).pure[IO]

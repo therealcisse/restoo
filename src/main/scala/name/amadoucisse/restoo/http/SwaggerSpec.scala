@@ -361,7 +361,8 @@ object SwaggerSpec {
       "type" → fromString("object"),
       "required" → arr(
         fromString("name"),
-        fromString("price"),
+        fromString("priceInCents"),
+        fromString("currency"),
         fromString("category"),
       ),
       "properties" → obj(
@@ -369,10 +370,14 @@ object SwaggerSpec {
           "type" → fromString("string"),
           "minLength" → fromInt(1),
         ),
-        "price" → obj(
+        "priceInCents" → obj(
           "type" → fromString("number"),
           "format" → fromString("double"),
           "minimum" → fromDoubleOrNull(0.0),
+        ),
+        "currency" → obj(
+          "type" → fromString("string"),
+          "format" → fromString("currency"),
         ),
         "category" → obj(
           "type" → fromString("string"),
@@ -484,6 +489,7 @@ object SwaggerSpec {
       "required" → arr(
         fromString("name"),
         fromString("price"),
+        fromString("currency"),
         fromString("category"),
         fromString("createdAt"),
         fromString("updatedAt"),
@@ -498,6 +504,10 @@ object SwaggerSpec {
           "type" → fromString("number"),
           "format" → fromString("double"),
           "minimum" → fromDoubleOrNull(0.0),
+        ),
+        "currency" → obj(
+          "type" → fromString("string"),
+          "format" → fromString("currency"),
         ),
         "category" → obj(
           "type" → fromString("string"),

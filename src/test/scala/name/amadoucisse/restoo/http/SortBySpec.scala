@@ -12,7 +12,7 @@ class SortBySpec extends FunSuite with PropertyChecks with Matchers {
   val sortByFields = Table(
     "sortByField",
     "name",
-    "price",
+    "priceInCents",
     "category",
     "created_at",
     "updated_at",

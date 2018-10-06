@@ -20,9 +20,8 @@ import org.http4s.circe._
 import org.scalatest._
 import org.scalatest.prop.PropertyChecks
 import eu.timepit.refined.auto._
-import eu.timepit.refined.types.numeric.NonNegDouble
+import eu.timepit.refined.types.numeric.NonNegInt
 import domain.AppError
-
 import com.olegpy.meow.hierarchy._
 
 @SuppressWarnings(Array("org.wartremover.warts.Throw", "org.wartremover.warts.OptionPartial"))
@@ -44,7 +43,7 @@ class ItemEndpointsSpec extends FunSuite with Matchers with PropertyChecks with 
       val itemHttpService = ItemEndpoints.endpoints[IO](itemService, stockService, swaggerConf)
 
       val item =
-        ItemEndpoints.ItemRequest(name = "Item 0", price = 99.99, category = "Food & Drinks")
+        ItemEndpoints.ItemRequest(name = "Item 0", priceInCents = 9999, currency = "MAD", category = "Food & Drinks")
 
       val request = Request[IO](Method.POST, Uri.uri("/")).withEntity(item.asJson)
 
@@ -75,7 +74,7 @@ class ItemEndpointsSpec extends FunSuite with Matchers with PropertyChecks with 
       implicit val itemDecoder: EntityDecoder[IO, Item] = jsonOf
 
       val itemARequest =
-        ItemEndpoints.ItemRequest(name = "ItemA", price = 99.99, category = "Food & Drinks")
+        ItemEndpoints.ItemRequest(name = "ItemA", priceInCents = 9999, currency = "MAD", category = "Food & Drinks")
       val itemBRequest = itemARequest.copy(name = "ItemB")
 
       for {
@@ -131,7 +130,7 @@ class ItemEndpointsSpec extends FunSuite with Matchers with PropertyChecks with 
     val itemHttpService = ItemEndpoints.endpoints[IO](itemService, stockService, swaggerConf)
 
     val item =
-      ItemEndpoints.ItemRequest(name = "Item 0", price = 99.99, category = "Food & Drinks")
+      ItemEndpoints.ItemRequest(name = "Item 0", priceInCents = 9999, currency = "MAD", category = "Food & Drinks")
 
     // Create an item
     IOAssertion {
@@ -177,7 +176,7 @@ class ItemEndpointsSpec extends FunSuite with Matchers with PropertyChecks with 
 
     val itemHttpService = ItemEndpoints.endpoints[IO](itemService, stockService, swaggerConf)
 
-    val item = ItemEndpoints.ItemRequest(name = "", price = -99.99, category = "")
+    val item = ItemEndpoints.ItemRequest(name = "", priceInCents = -9999, currency = "MAD", category = "")
 
     implicit val itemDecoder: EntityDecoder[IO, Item] = jsonOf
 
@@ -207,7 +206,11 @@ class ItemEndpointsSpec extends FunSuite with Matchers with PropertyChecks with 
       for {
         createRequest ← IO.pure(
           Request[IO](Method.POST, Uri.uri("/"))
-            .withEntity(ItemEndpoints.ItemRequest(name = "Name", price = 99.99, category = "Category").asJson)
+            .withEntity(
+              ItemEndpoints
+                .ItemRequest(name = "Name", priceInCents = 9999, currency = "MAD", category = "Category")
+                .asJson
+            )
         )
         createResponse ← itemHttpService
           .run(createRequest)
@@ -236,7 +239,7 @@ class ItemEndpointsSpec extends FunSuite with Matchers with PropertyChecks with 
         // Invalid patch
         patches = Vector(
           json"""{"op":"replace","path":"/name","value":${item.name}}""",
-          json"""{"op":"replace","path":"/price","value":${item.price}}""",
+          json"""{"op":"replace","path":"/priceInCents","value":${item.priceInCents}}""",
           json"""{"op":"replace","path":"/category","value":${item.category}}""",
         )
         request = Request[IO](Method.PATCH, Uri.unsafeFromString("/" + id))
@@ -278,7 +281,12 @@ class ItemEndpointsSpec extends FunSuite with Matchers with PropertyChecks with 
       implicit val itemDecoder: EntityDecoder[IO, Item] = jsonOf
 
       val item =
-        ItemEndpoints.ItemRequest(name = "Cheese Burger", price = 99.99, category = "Food & Drinks")
+        ItemEndpoints.ItemRequest(
+          name = "Cheese Burger",
+          priceInCents = 9999,
+          currency = "MAD",
+          category = "Food & Drinks"
+        )
 
       for {
         createRequest ← IO.pure(Request[IO](Method.POST, Uri.uri("/")).withEntity(item.asJson))
@@ -321,7 +329,12 @@ class ItemEndpointsSpec extends FunSuite with Matchers with PropertyChecks with 
       implicit val itemDecoder: EntityDecoder[IO, Item] = jsonOf
 
       val item =
-        ItemEndpoints.ItemRequest(name = "Cheese Burger", price = 99.99, category = "Food & Drinks")
+        ItemEndpoints.ItemRequest(
+          name = "Cheese Burger",
+          priceInCents = 9999,
+          currency = "MAD",
+          category = "Food & Drinks"
+        )
 
       for {
         createRequest ← IO.pure(Request[IO](Method.POST, Uri.uri("/")).withEntity(item.asJson))
@@ -345,8 +358,8 @@ class ItemEndpointsSpec extends FunSuite with Matchers with PropertyChecks with 
         _ = patchedItem.name shouldEqual Name(newName)
 
         // patch price
-        newPrice = NonNegDouble.unsafeFrom(50.99)
-        patchPrice = json"""{"op":"replace","path":"/price","value":${newPrice.value}}"""
+        newPrice = NonNegInt.unsafeFrom(5099)
+        patchPrice = json"""{"op":"replace","path":"/priceInCents","value":${newPrice.value}}"""
         patchRequest = Request[IO](Method.PATCH, Uri.unsafeFromString("/" + id))
           .withEntity(patchPrice)
         patchResponse ← itemHttpService
@@ -354,7 +367,7 @@ class ItemEndpointsSpec extends FunSuite with Matchers with PropertyChecks with 
           .getOrElse(fail(s"Request was not handled: $patchRequest"))
         _ = patchResponse.status shouldEqual Ok
         patchedItem ← patchResponse.as[Item]
-        _ = patchedItem.priceInCents shouldEqual Cents.fromStandardAmount(newPrice)
+        _ = patchedItem.price.amountInCents shouldEqual newPrice
 
         // patch category
         newCategory = "Dessert"
@@ -371,7 +384,7 @@ class ItemEndpointsSpec extends FunSuite with Matchers with PropertyChecks with 
         // Revert all changes
         patches = Vector(
           json"""{"op":"replace","path":"/name","value":${item.name}}""",
-          json"""{"op":"replace","path":"/price","value":${item.price}}""",
+          json"""{"op":"replace","path":"/priceInCents","value":${item.priceInCents}}""",
           json"""{"op":"replace","path":"/category","value":${item.category}}""",
         )
         patchRequest = Request[IO](Method.PATCH, Uri.unsafeFromString("/" + id))
@@ -382,7 +395,7 @@ class ItemEndpointsSpec extends FunSuite with Matchers with PropertyChecks with 
         _ = patchResponse.status shouldEqual Ok
         patchedItem ← patchResponse.as[Item]
         _ = patchedItem.name shouldEqual Name(item.name)
-        _ = patchedItem.priceInCents shouldEqual Cents.fromStandardAmount(NonNegDouble.unsafeFrom(item.price))
+        _ = patchedItem.price.amountInCents shouldEqual NonNegInt.unsafeFrom(item.priceInCents)
         _ = patchedItem.category shouldEqual Category(item.category)
       } yield {}
     }
@@ -406,7 +419,7 @@ class ItemEndpointsSpec extends FunSuite with Matchers with PropertyChecks with 
       implicit val itemDecoder: EntityDecoder[IO, Item] = jsonOf
 
       val item =
-        ItemEndpoints.ItemRequest(name = "Item 0", price = 99.99, category = "Food & Drinks")
+        ItemEndpoints.ItemRequest(name = "Item 0", priceInCents = 9999, currency = "MAD", category = "Food & Drinks")
 
       for {
         createRequest ← IO.pure(
@@ -452,7 +465,12 @@ class ItemEndpointsSpec extends FunSuite with Matchers with PropertyChecks with 
       implicit val stockDecoder: EntityDecoder[IO, Stock] = jsonOf
 
       val item =
-        ItemEndpoints.ItemRequest(name = "Cheese Burger", price = 99.99, category = "Food & Drinks")
+        ItemEndpoints.ItemRequest(
+          name = "Cheese Burger",
+          priceInCents = 9999,
+          currency = "MAD",
+          category = "Food & Drinks"
+        )
 
       val entry = ItemEndpoints.StockRequest(delta = 1)
 
@@ -522,7 +540,12 @@ class ItemEndpointsSpec extends FunSuite with Matchers with PropertyChecks with 
       implicit val stockDecoder: EntityDecoder[IO, Stock] = jsonOf
 
       val item =
-        ItemEndpoints.ItemRequest(name = "Cheese Burger", price = 99.99, category = "Food & Drinks")
+        ItemEndpoints.ItemRequest(
+          name = "Cheese Burger",
+          priceInCents = 9999,
+          currency = "MAD",
+          category = "Food & Drinks"
+        )
 
       val entry = ItemEndpoints.StockRequest(delta = -1)
 
