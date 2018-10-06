@@ -109,7 +109,7 @@ class ItemEndpointsSpec extends FunSuite with Matchers with PropertyChecks with 
 
         errorResponse = updatedItem.hcursor.downField("error")
         _ = errorResponse.get[String]("code") shouldEqual Right(ApiResponseCodes.CONFLICT)
-        _ = errorResponse.get[String]("type") shouldEqual Right("DuplicateItem")
+        _ = errorResponse.get[String]("type") shouldEqual Right("ItemAlreadyExists")
 
       } yield {}
 
@@ -367,7 +367,7 @@ class ItemEndpointsSpec extends FunSuite with Matchers with PropertyChecks with 
           .getOrElse(fail(s"Request was not handled: $patchRequest"))
         _ = patchResponse.status shouldEqual Ok
         patchedItem ← patchResponse.as[Item]
-        _ = patchedItem.price.amountInCents shouldEqual newPrice
+        _ = patchedItem.price.amountInCents shouldEqual newPrice.value
 
         // patch category
         newCategory = "Dessert"
@@ -395,7 +395,7 @@ class ItemEndpointsSpec extends FunSuite with Matchers with PropertyChecks with 
         _ = patchResponse.status shouldEqual Ok
         patchedItem ← patchResponse.as[Item]
         _ = patchedItem.name shouldEqual Name(item.name)
-        _ = patchedItem.price.amountInCents shouldEqual NonNegInt.unsafeFrom(item.priceInCents)
+        _ = patchedItem.price.amountInCents shouldEqual item.priceInCents
         _ = patchedItem.category shouldEqual Category(item.category)
       } yield {}
     }
@@ -440,7 +440,7 @@ class ItemEndpointsSpec extends FunSuite with Matchers with PropertyChecks with 
           .getOrElse(fail(s"Get request was not handled"))
 
         _ = createResponse.status shouldEqual Created
-        _ = deleteResponse.status shouldEqual Ok
+        _ = deleteResponse.status shouldEqual NoContent
         _ = getResponse.status shouldEqual NotFound
       } yield {}
 
