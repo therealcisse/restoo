@@ -4,54 +4,45 @@ package repository.doobie
 
 import cats.effect.IO
 import domain.items.{ Category, ItemId, Name }
+import domain.AppError
 import http.{ OrderBy, SortBy }
 import eu.timepit.refined.auto._
 import Arbitraries.item
 import common.IOAssertion
+import org.scalatest.Matchers
 import queries.ItemQueries
 
-class ItemQueryTypeCheckSpec extends RepositorySpec {
+class ItemQueryTypeCheckSpec extends RepositorySpec with Matchers {
   override def testDbName: String = getClass.getSimpleName
 
   private lazy val repo = new DoobieItemRepositoryInterpreter[IO](transactor)
 
   test("NOT find by name") {
-    IOAssertion {
-      for {
-        _ ← repo.findByName(Name("Some item"))
-      } yield {
-        fail()
-      }
+    a[AppError.ItemNotFound.type] should be thrownBy IOAssertion {
+      repo.findByName(Name("Some item"))
     }
   }
 
   test("NOT list any") {
     IOAssertion {
       for {
-        _ ← repo.list(None, Nil).compile.toList
+        items ← repo.list(None, Nil).compile.toList
       } yield {
-        fail()
+        items shouldBe 'empty
       }
     }
   }
 
   test("NOT find by id") {
-    IOAssertion {
-      for {
-        _ ← repo.get(ItemId(1))
-      } yield {
-        fail()
-      }
+    a[AppError.ItemNotFound.type] should be thrownBy IOAssertion {
+      repo.get(ItemId(1))
     }
   }
 
-  test("Always delete") {
+  test("Always delete without error") {
     IOAssertion {
-      for {
-        _ ← repo.delete(ItemId(1))
-      } yield {
-        fail()
-      }
+
+      repo.delete(ItemId(1)).handleErrorWith(_ ⇒ fail())
     }
   }
 
