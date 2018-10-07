@@ -371,13 +371,11 @@ object SwaggerSpec {
           "minLength" → fromInt(1),
         ),
         "priceInCents" → obj(
-          "type" → fromString("number"),
-          "format" → fromString("double"),
-          "minimum" → fromDoubleOrNull(0.0),
+          "type" → fromString("integer"),
+          "format" → fromString("int32"),
         ),
         "currency" → obj(
-          "type" → fromString("string"),
-          "format" → fromString("currency"),
+          "$ref" → fromString("#/definitions/CurrencyCode"),
         ),
         "category" → obj(
           "type" → fromString("string"),
@@ -489,7 +487,6 @@ object SwaggerSpec {
       "required" → arr(
         fromString("name"),
         fromString("price"),
-        fromString("currency"),
         fromString("category"),
         fromString("createdAt"),
         fromString("updatedAt"),
@@ -501,13 +498,7 @@ object SwaggerSpec {
           "minLength" → fromInt(1),
         ),
         "price" → obj(
-          "type" → fromString("number"),
-          "format" → fromString("double"),
-          "minimum" → fromDoubleOrNull(0.0),
-        ),
-        "currency" → obj(
-          "type" → fromString("string"),
-          "format" → fromString("currency"),
+          "$ref" → fromString("#/definitions/Money"),
         ),
         "category" → obj(
           "type" → fromString("string"),
@@ -534,6 +525,31 @@ object SwaggerSpec {
       "type" → fromString("string"),
       "enum" → arr(
         fromString("replace"),
+      )
+    ),
+    "CurrencyCode" → obj(
+      "type" → fromString("string"),
+      "enum" → arr(
+        fromString("EUR"),
+        fromString("USD"),
+        fromString("MAD"),
+        fromString("JYP"),
+      )
+    ),
+    "Money" → obj(
+      "type" → fromString("object"),
+      "required" → arr(
+        fromString("amountInCents"),
+        fromString("currency"),
+      ),
+      "properties" → obj(
+        "amountInCents" → obj(
+          "type" → fromString("integer"),
+          "format" → fromString("int32"),
+        ),
+        "currency" → obj(
+          "$ref" → fromString("#/definitions/CurrencyCode"),
+        ),
       )
     ),
     "JsonPatch" → obj(
