@@ -39,7 +39,7 @@ class ItemQueryTypeCheckSpec extends RepositorySpec with Matchers {
     }
   }
 
-  test("Always delete without error") {
+  test("Delete should never yield errors") {
     IOAssertion {
 
       repo.delete(ItemId(1)).handleErrorWith(_ ⇒ fail())

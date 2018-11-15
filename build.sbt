@@ -6,20 +6,21 @@ organization    := "name.amadoucisse"
 name            := "restoo"
 scalaVersion    := "2.12.7"
 
-val CatsVersion       = "1.4.0"
-val CirceVersion      = "0.10.0"
-val MeowMTLVersion    = "0.1.3"
-val Http4sVersion     = "0.19.0"
-val ScalaCheckVersion = "1.14.0"
-val ScalaTestVersion  = "3.0.5"
-val DoobieVersion     = "0.6.0-RC1"
-val H2Version         = "1.4.196"
-val FlywayVersion     = "5.2.0"
-val PureConfigVersion = "0.9.2"
+val CatsVersion         = "1.4.0"
+val CirceVersion        = "0.10.1"
+val CirceOpticsVersion  = "0.10.0"
+val MeowMTLVersion      = "0.2.0"
+val Http4sVersion       = "0.20.0-M3"
+val ScalaCheckVersion   = "1.14.0"
+val ScalaTestVersion    = "3.0.5"
+val DoobieVersion       = "0.6.0"
+val H2Version           = "1.4.196"
+val FlywayVersion       = "5.2.1"
+val PureConfigVersion   = "0.9.2"
 
 val LogbackVersion    = "1.2.3"
 
-val SwaggerUIVersion  = "3.19.0"
+val SwaggerUIVersion  = "3.19.5"
 
 //val OpencensusHttp4sVersion   = "0.6.0"
 //val OpencensusLoggingVersion = "0.15.1"
@@ -27,7 +28,7 @@ val SwaggerUIVersion  = "3.19.0"
 
 val ScribeVersion = "2.6.0"
 
-val RefinedVersion = "0.9.2"
+val RefinedVersion = "0.9.3"
 
 libraryDependencies ++= Seq(
   "org.typelevel"           %% "cats-core"              % CatsVersion,
@@ -37,7 +38,7 @@ libraryDependencies ++= Seq(
   "io.circe"                %% "circe-core"             % CirceVersion,
   "io.circe"                %% "circe-literal"          % CirceVersion,
   "io.circe"                %% "circe-generic-extras"   % CirceVersion,
-  "io.circe"                %% "circe-optics"           % CirceVersion,
+  "io.circe"                %% "circe-optics"           % CirceOpticsVersion,
   "io.circe"                %% "circe-parser"           % CirceVersion,
   "io.circe"                %% "circe-java8"            % CirceVersion,
 
@@ -52,7 +53,7 @@ libraryDependencies ++= Seq(
   "org.http4s"              %% "http4s-dsl"             % Http4sVersion,
   "org.http4s"              %% "http4s-blaze-client"    % Http4sVersion,
 
-  "org.http4s"              %% "http4s-prometheus-server-metrics" % Http4sVersion,
+  "org.http4s"              %% "http4s-prometheus-metrics" % Http4sVersion,
 
   "org.scalacheck"          %% "scalacheck"             % ScalaCheckVersion % Test,
   "org.scalatest"           %% "scalatest"              % ScalaTestVersion  % Test,

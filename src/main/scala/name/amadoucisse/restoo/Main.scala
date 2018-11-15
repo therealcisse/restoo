@@ -1,24 +1,25 @@
 package name.amadoucisse.restoo
 
-import cats.effect.{ ConcurrentEffect, ContextShift, ExitCode, IO, IOApp, Resource }
+import cats.effect.{ ConcurrentEffect, ContextShift, ExitCode, IO, IOApp, Resource, Timer }
 import cats.implicits._
 import io.prometheus.client.CollectorRegistry
 import config.{ AppConf, DatabaseConf }
 import domain.AppError
 import infra.endpoint.{ Index, ItemEndpoints }
 import infra.repository.doobie.{ DoobieEntryRepositoryInterpreter, DoobieItemRepositoryInterpreter }
+import doobie.util.ExecutionContexts
 import service.{ ItemService, StockService }
 import org.http4s.implicits._
 import org.http4s.server.{ Router, Server }
 import org.http4s.server.staticcontent.{ MemoryCache, WebjarService, webjarService }
 import org.http4s.server.blaze.BlazeServerBuilder
-import org.http4s.server.prometheus.{ PrometheusExportService, PrometheusMetrics }
+import org.http4s.server.middleware.Metrics
+import org.http4s.metrics.prometheus.{ Prometheus, PrometheusExportService }
+
 //import io.opencensus.scala.http4s.TracingMiddleware
 //import io.opencensus.scala.http.ServiceData
 import http.{ AppHttpErrorHandler, HttpErrorHandler, SwaggerSpec }
 import eu.timepit.refined.auto._
-
-import scala.concurrent.ExecutionContext.Implicits.global
 
 object Main extends IOApp {
   import com.olegpy.meow.hierarchy._
@@ -26,12 +27,15 @@ object Main extends IOApp {
   final def run(args: List[String]): IO[ExitCode] =
     resource[IO].use(_ ⇒ IO.never)
 
-  private def resource[F[_]: ContextShift](implicit F: ConcurrentEffect[F]): Resource[F, Server[F]] = {
+  private def resource[F[_]: Timer: ContextShift](implicit F: ConcurrentEffect[F]): Resource[F, Server[F]] = {
     implicit val H: HttpErrorHandler[F, AppError] = new AppHttpErrorHandler[F]
 
     for {
       conf ← Resource.liftF(AppConf.load[F])
-      xa ← DatabaseConf.dbTransactor(conf.db, global, global)
+
+      xa ← DatabaseConf.dbTransactor(
+        conf.db,
+      )
       _ ← Resource.liftF(DatabaseConf.migrateDb(xa))
 
       itemRepo = DoobieItemRepositoryInterpreter(xa)
@@ -39,29 +43,32 @@ object Main extends IOApp {
       itemService = ItemService(itemRepo)
       stockService = StockService(entryRepo, itemRepo)
 
-      metricsRegistry = CollectorRegistry.defaultRegistry
-      withMetrics = PrometheusMetrics[F](metricsRegistry, prefix = conf.namespace)
-      prometheusExportService = PrometheusExportService.service(metricsRegistry)
-      _ ← Resource.liftF(PrometheusExportService.addDefaults(metricsRegistry))
-
       endpoints = ItemEndpoints.endpoints(itemService, stockService, conf.swagger)
 
-      service ← Resource.liftF(
-        withMetrics(
-          //TracingMiddleware.withoutSpan(
-          endpoints,
-          //            ServiceData(name = "Restoo", version = "1.0.0")
-          //          )
-        )
+      registry = CollectorRegistry.defaultRegistry
+
+      service = Metrics[F](Prometheus(registry, prefix = conf.namespace))(
+        // TracingMiddleware.withoutSpan( // TODO: uncomment when opencensus is updated
+        endpoints,
+        //   ServiceData(name = "Restoo", version = "1.0.0")
+        // )
       )
+
+      metricsExportService = PrometheusExportService.service(registry)
+      _ = PrometheusExportService.addDefaults(registry)
+
+      assetsBlockingEC ← ExecutionContexts.cachedThreadPool[F]
 
       httpApp = Router(
         "/" → Index.endpoints,
+        "/" → metricsExportService,
         s"/api/${SwaggerSpec.ApiVersion}/items" → service,
-        "/" → prometheusExportService,
         "/assets" → webjarService(
           WebjarService
-            .Config(blockingExecutionContext = global, cacheStrategy = MemoryCache[F])
+            .Config(
+              blockingExecutionContext = assetsBlockingEC,
+              cacheStrategy = MemoryCache[F]
+            )
         ),
       ).orNotFound
 
