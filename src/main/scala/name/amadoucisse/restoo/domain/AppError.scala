@@ -1,7 +1,7 @@
 package name.amadoucisse.restoo
 package domain
 
-import cats.data.NonEmptyList
+import cats.data.NonEmptyChain
 import items.Item
 import utils.Validation
 
@@ -14,12 +14,12 @@ object AppError {
 
   case object ItemOutOfStock extends AppError("Item out of stock")
 
-  final case class ValidationFailed(errors: NonEmptyList[Validation.FieldError]) extends AppError("Validation failed")
+  final case class ValidationFailed(errors: NonEmptyChain[Validation.FieldError]) extends AppError("Validation failed")
 
   def invalidJsonPatch: AppError = InvalidJsonPatch
   def itemAlreadyExists(item: Item): AppError = ItemAlreadyExists(item)
   def itemNotFound: AppError = ItemNotFound
   def itemOutOfStock: AppError = ItemOutOfStock
-  def validationFailed(errors: NonEmptyList[Validation.FieldError]): AppError =
+  def validationFailed(errors: NonEmptyChain[Validation.FieldError]): AppError =
     ValidationFailed(errors)
 }

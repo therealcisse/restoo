@@ -75,7 +75,7 @@ class StockServiceSpec extends WordSpec with MustMatchers {
     }
   }
 
-  trait Context {
+  trait Context extends IOExecution {
     val itemRepo = new ItemRepositoryAlgebraImpl
     val entryRepo = new EntryRepositoryAlgebraImpl
 

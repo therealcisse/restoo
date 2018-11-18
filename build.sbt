@@ -76,6 +76,9 @@ libraryDependencies ++= Seq(
   "com.outr"                %% "scribe"                               % ScribeVersion,
 )
 
+addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.8")
+addCompilerPlugin("com.olegpy"     %% "better-monadic-for" % "0.3.0-M4")
+
 enablePlugins(ScalafmtPlugin, JavaAppPackaging, DockerComposePlugin, BuildInfoPlugin)
 
 buildInfoKeys := Seq[BuildInfoKey]("SwaggerUIVersion" -> SwaggerUIVersion)

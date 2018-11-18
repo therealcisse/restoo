@@ -5,6 +5,7 @@ package endpoint
 import scala.language.higherKinds
 import cats.effect.Sync
 import cats.implicits._
+import cats.Apply
 import io.circe.generic.auto._
 import io.circe.syntax._
 import org.http4s.circe._
@@ -17,7 +18,6 @@ import config.SwaggerConf
 import http.{ HttpErrorHandler, JsonPatch, OrderBy, SortBy, SwaggerSpec }
 import service.{ ItemService, StockService }
 import utils.Validation
-
 import eu.timepit.refined._
 import eu.timepit.refined.auto._
 
@@ -233,32 +233,33 @@ object ItemEndpoints {
 
     def validate[F[_]](implicit F: Sync[F]): F[Item] = {
       import Validation._
-      import cats.data.ValidatedNel
+      import cats.data.ValidatedNec
       import eu.timepit.refined.collection.NonEmpty
       import eu.timepit.refined.numeric.NonNegative
 
-      val item: ValidatedNel[FieldError, Item] = (
-        refineV[NonEmpty](name)
-          .leftMap(_ ⇒ FieldError("item.name", "error.empty"))
-          .toValidatedNel,
-        refineV[NonNegative](priceInCents)
-          .leftMap(_ ⇒ FieldError("item.priceInCents", "error.negative"))
-          .toValidatedNel,
-        refineV[Money.CurrencyCode](currency)
-          .leftMap(_ ⇒ FieldError("item.currency", "error.currency"))
-          .toValidatedNel,
-        refineV[NonEmpty](category)
-          .leftMap(_ ⇒ FieldError("item.category", "error.empty"))
-          .toValidatedNel,
-      ).mapN { (name, priceInCents, currency, category) ⇒
-        Item(
-          name = Name(name),
-          price = Money(priceInCents, currency),
-          category = Category(category),
-        )
-      }
+      val item: ValidatedNec[FieldError, Item] = Apply[ValidatedNec[FieldError, ?]]
+        .map4(
+          refineV[NonEmpty](name)
+            .leftMap(_ ⇒ FieldError("item.name", "error.empty"))
+            .toValidatedNec,
+          refineV[NonNegative](priceInCents)
+            .leftMap(_ ⇒ FieldError("item.priceInCents", "error.negative"))
+            .toValidatedNec,
+          refineV[Money.CurrencyCode](currency)
+            .leftMap(_ ⇒ FieldError("item.currency", "error.currency"))
+            .toValidatedNec,
+          refineV[NonEmpty](category)
+            .leftMap(_ ⇒ FieldError("item.category", "error.empty"))
+            .toValidatedNec,
+        ) { (name, priceInCents, currency, category) ⇒
+          Item(
+            name = Name(name),
+            price = Money(priceInCents, currency),
+            category = Category(category),
+          )
+        }
 
-      item.fold(errors ⇒ F.raiseError(AppError.validationFailed(errors)), F.pure)
+      item.fold(errors ⇒ F.raiseError(AppError.validationFailed(errors)), _.pure[F])
     }
   }
 

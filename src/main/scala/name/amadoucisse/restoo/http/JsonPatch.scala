@@ -42,12 +42,12 @@ object JsonPatch {
 
     def toJsonPatch(v: Json) = v.hcursor.get[String]("op") match {
       case Right("replace") ⇒ v.as[ReplaceOp].toOption.toVector
-      case _                ⇒ Vector.empty[JsonPatch]
+      case _                ⇒ Vector.empty
     }
 
     if (json.isArray) json.asArray match {
       case Some(xs) ⇒ xs.flatMap(toJsonPatch)
-      case _        ⇒ Vector.empty[JsonPatch]
+      case _        ⇒ Vector.empty
     } else toJsonPatch(json)
   }
 

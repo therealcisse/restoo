@@ -13,8 +13,7 @@ import domain.items._
 import http.SortBy
 import queries.ItemQueries
 
-final class DoobieItemRepositoryInterpreter[F[_]](val xa: Transactor[F])(implicit F: Sync[F])
-    extends ItemRepositoryAlgebra[F] {
+final class DoobieItemRepositoryInterpreter[F[_]: Sync](val xa: Transactor[F]) extends ItemRepositoryAlgebra[F] {
 
   def create(item: Item): F[Item] =
     ItemQueries
@@ -49,7 +48,7 @@ final class DoobieItemRepositoryInterpreter[F[_]](val xa: Transactor[F])(implici
           }
           .transact(xa)
 
-      case None ⇒ F.raiseError(AppError.itemNotFound)
+      case None ⇒ Sync[F].raiseError(AppError.itemNotFound)
     }
 
   private def getItem(id: ItemId): ConnectionIO[Item] =

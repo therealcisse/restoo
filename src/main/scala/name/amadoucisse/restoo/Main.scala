@@ -2,6 +2,7 @@ package name.amadoucisse.restoo
 
 import cats.effect.{ ConcurrentEffect, ContextShift, ExitCode, IO, IOApp, Resource, Timer }
 import cats.implicits._
+import cats.{ NonEmptyParallel, Parallel }
 import io.prometheus.client.CollectorRegistry
 import config.{ AppConf, DatabaseConf }
 import domain.AppError
@@ -24,10 +25,14 @@ import eu.timepit.refined.auto._
 object Main extends IOApp {
   import com.olegpy.meow.hierarchy._
 
+  @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
+  implicit lazy val par: Parallel[IO, IO] = Parallel[IO, IO.Par].asInstanceOf[Parallel[IO, IO]]
+
   final def run(args: List[String]): IO[ExitCode] =
     resource[IO].use(_ ⇒ IO.never)
 
-  private def resource[F[_]: Timer: ContextShift](implicit F: ConcurrentEffect[F]): Resource[F, Server[F]] = {
+  private def resource[F[_]: Timer: ContextShift](implicit F: ConcurrentEffect[F],
+                                                  P: NonEmptyParallel[F, F]): Resource[F, Server[F]] = {
     implicit val H: HttpErrorHandler[F, AppError] = new AppHttpErrorHandler[F]
 
     for {

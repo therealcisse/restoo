@@ -17,22 +17,21 @@ final case class DatabaseConf(url: NonEmptyString,
 
 object DatabaseConf {
 
-  def dbTransactor[F[_]: Async: ContextShift](dbConf: DatabaseConf): Resource[F, HikariTransactor[F]] =
-    ExecutionContexts
-      .fixedThreadPool[F](dbConf.concurrentConnectionsFactor * Runtime.getRuntime.availableProcessors())
-      .flatMap { connectEC ⇒
-        ExecutionContexts.cachedThreadPool[F].flatMap { transactEC ⇒
-          HikariTransactor
-            .newHikariTransactor[F](
-              dbConf.driverClassName,
-              dbConf.url,
-              dbConf.user,
-              dbConf.password,
-              connectEC,
-              transactEC
-            )
-        }
+  def dbTransactor[F[_]: Async: ContextShift](dbConf: DatabaseConf): Resource[F, HikariTransactor[F]] = {
+    val size = dbConf.concurrentConnectionsFactor * Runtime.getRuntime.availableProcessors()
+    ExecutionContexts.fixedThreadPool[F](size).flatMap { connectEC ⇒
+      ExecutionContexts.cachedThreadPool[F].flatMap { transactEC ⇒
+        HikariTransactor.newHikariTransactor[F](
+          dbConf.driverClassName,
+          dbConf.url,
+          dbConf.user,
+          dbConf.password,
+          connectEC,
+          transactEC,
+        )
       }
+    }
+  }
 
   /**
    * Runs the flyway migrations against the target database

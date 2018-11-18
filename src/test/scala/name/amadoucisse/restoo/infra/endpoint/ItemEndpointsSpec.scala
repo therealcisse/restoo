@@ -8,7 +8,7 @@ import domain.entries._
 import common.IOAssertion
 import service.{ ItemService, StockService }
 import repository.inmemory.{ EntryRepositoryInMemoryInterpreter, ItemRepositoryInMemoryInterpreter }
-import cats.effect._
+import cats.effect.IO
 import io.circe.generic.auto._
 import io.circe.syntax._
 import io.circe.literal._
@@ -25,7 +25,13 @@ import domain.AppError
 import com.olegpy.meow.hierarchy._
 
 @SuppressWarnings(Array("org.wartremover.warts.Throw", "org.wartremover.warts.OptionPartial"))
-class ItemEndpointsSpec extends FunSuite with Matchers with PropertyChecks with Arbitraries with dsl.Http4sDsl[IO] {
+class ItemEndpointsSpec
+    extends FunSuite
+    with Matchers
+    with PropertyChecks
+    with Arbitraries
+    with dsl.Http4sDsl[IO]
+    with IOExecution {
 
   implicit val H: HttpErrorHandler[IO, AppError] = new AppHttpErrorHandler[IO]
 
