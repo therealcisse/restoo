@@ -6,7 +6,7 @@ package queries
 import doobie._
 import doobie.implicits._
 import cats.implicits._
-import domain.OccurredAt
+import domain.DateTime
 import domain.items._
 import http.{ OrderBy, SortBy }
 
@@ -20,7 +20,7 @@ private[doobie] object ItemQueries extends SQLCommon {
   def touch(id: ItemId): Update0 = sql"""
     UPDATE items
     SET
-      updated_at = ${OccurredAt.now}
+      updated_at = ${ DateTime.now}
     WHERE id = $id
   """.update
 

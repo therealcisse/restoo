@@ -4,7 +4,7 @@ package service
 import cats.NonEmptyParallel
 import cats.implicits._
 import cats.effect.Sync
-import domain.{ AppError, OccurredAt }
+import domain.{ AppError, DateTime }
 import domain.items.{ ItemId, ItemRepositoryAlgebra }
 import domain.entries.{ Delta, Entry, EntryRepositoryAlgebra, Stock }
 
@@ -16,7 +16,7 @@ final class StockService[F[_]](entryRepo: EntryRepositoryAlgebra[F], itemRepo: I
   def createEntry(itemId: ItemId, delta: Delta): F[Stock] = {
     val getAction = getStock(itemId)
 
-    val addAction = entryRepo.create(Entry(itemId, delta, OccurredAt.now))
+    val addAction = entryRepo.create(Entry(itemId, delta, DateTime.now))
 
     getAction
       .flatMap { stock ⇒

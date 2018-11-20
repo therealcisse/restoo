@@ -8,7 +8,7 @@ import cats.effect.Sync
 import doobie._
 import doobie.implicits._
 import doobie.postgres._
-import domain.{ AppError, OccurredAt }
+import domain.{ AppError, DateTime }
 import domain.items._
 import http.SortBy
 import queries.ItemQueries
@@ -32,7 +32,7 @@ final class DoobieItemRepositoryInterpreter[F[_]: Sync](val xa: Transactor[F]) e
   def update(item: Item): F[Item] =
     item.id match {
       case Some(id) ⇒
-        val newItem = item.copy(updatedAt = OccurredAt.now)
+        val newItem = item.copy(updatedAt = DateTime.now)
         ItemQueries
           .update(newItem, id)
           .run

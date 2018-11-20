@@ -33,8 +33,8 @@ trait Arbitraries {
         Name(name),
         Money(price, Refined.unsafeApply("MAD")),
         Category(category),
-        OccurredAt(createdAt),
-        OccurredAt(updatedAt),
+        DateTime(createdAt),
+        DateTime(updatedAt),
         id.map(ItemId(_))
       )
   }
@@ -49,7 +49,7 @@ trait Arbitraries {
       Entry(
         ItemId(itemId),
         Delta(delta),
-        OccurredAt(timestamp),
+        DateTime(timestamp),
         id.map(EntryId(_))
       )
   }

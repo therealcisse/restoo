@@ -8,7 +8,7 @@ import items.ItemId
 final case class Entry(
     itemId: ItemId,
     delta: Delta,
-    timestamp: OccurredAt,
+    timestamp: DateTime,
     id: Option[EntryId] = None,
 )
 

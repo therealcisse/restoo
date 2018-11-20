@@ -8,7 +8,7 @@ import java.time.Instant
 
 import doobie.Meta
 
-import domain.OccurredAt
+import domain.DateTime
 import domain.items.{ Category, ItemId, Name }
 import domain.entries.{ Delta, EntryId }
 
@@ -35,6 +35,6 @@ private trait SQLCommon {
       dt ⇒ Timestamp.from(dt)
     )
 
-  implicit val OccurredAtMeta: Meta[OccurredAt] =
-    Meta[Instant].timap[OccurredAt](x ⇒ OccurredAt(x))(_.value)
+  implicit val OccurredAtMeta: Meta[DateTime] =
+    Meta[Instant].timap[DateTime](x ⇒ DateTime(x))(_.value)
 }
