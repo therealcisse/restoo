@@ -6,27 +6,27 @@ organization    := "name.amadoucisse"
 name            := "restoo"
 scalaVersion    := "2.12.8"
 
-val CatsVersion         = "1.4.0"
+val CatsVersion         = "1.5.0"
 val CirceVersion        = "0.10.1"
 val CirceOpticsVersion  = "0.10.0"
 val MeowMTLVersion      = "0.2.0"
-val Http4sVersion       = "0.20.0-M3"
+val Http4sVersion       = "0.20.0-M4"
 val ScalaCheckVersion   = "1.14.0"
 val ScalaTestVersion    = "3.0.5"
 val DoobieVersion       = "0.6.0"
 val H2Version           = "1.4.196"
-val FlywayVersion       = "5.2.1"
-val PureConfigVersion   = "0.9.2"
+val FlywayVersion       = "5.2.4"
+val PureConfigVersion   = "0.10.1"
 
 val LogbackVersion    = "1.2.3"
 
-val SwaggerUIVersion  = "3.19.5"
+val SwaggerUIVersion  = "3.20.3"
 
 //val OpencensusHttp4sVersion   = "0.6.0"
 //val OpencensusLoggingVersion = "0.15.1"
 //val OpencensusZipkinVersion  = "0.15.1"
 
-val ScribeVersion = "2.6.0"
+val ScribeVersion = "2.7.0"
 
 val RefinedVersion = "0.9.3"
 
@@ -76,7 +76,7 @@ libraryDependencies ++= Seq(
   "com.outr"                %% "scribe"                               % ScribeVersion,
 )
 
-addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.8")
+addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.9")
 addCompilerPlugin("com.olegpy"     %% "better-monadic-for" % "0.3.0-M4")
 
 enablePlugins(ScalafmtPlugin, JavaAppPackaging, DockerComposePlugin, BuildInfoPlugin)

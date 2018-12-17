@@ -9,6 +9,7 @@ scalafixEnabled := false
 
 scalacOptions in ThisBuild ++= Seq(
   // format: off
+  "-Xmacro-settings:materialize-derivations", // better error messages for implicits in pureconfig
   "-deprecation",                      // Emit warning and location for usages of deprecated APIs.
   "-encoding", "UTF-8",                // Specify character encoding used by source files.
   "-explaintypes",                     // Explain type errors in more detail.

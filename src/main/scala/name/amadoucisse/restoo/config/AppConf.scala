@@ -5,6 +5,8 @@ import cats.effect.Sync
 import cats.implicits._
 import eu.timepit.refined.types.string.NonEmptyString
 
+import pureconfig.generic.auto._
+
 final case class AppConf(
     namespace: NonEmptyString,
     db: DatabaseConf,
