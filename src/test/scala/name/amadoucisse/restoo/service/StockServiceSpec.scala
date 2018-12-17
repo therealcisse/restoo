@@ -5,13 +5,14 @@ import cats.implicits._
 import cats.effect.IO
 import domain.items._
 import domain.entries._
-
 import http.SortBy
+import common.IOAssertion
 import org.scalatest.{ MustMatchers, WordSpec }
+import name.amadoucisse.restoo.domain.AppError
+import org.scalacheck.Gen
+import org.scalatest.prop.GeneratorDrivenPropertyChecks
 
-import eu.timepit.refined.auto._
-
-class StockServiceSpec extends WordSpec with MustMatchers {
+class StockServiceSpec extends WordSpec with MustMatchers with GeneratorDrivenPropertyChecks {
   val existingItemId = ItemId(1)
   val existingItemCount = 10L
 
@@ -20,23 +21,34 @@ class StockServiceSpec extends WordSpec with MustMatchers {
     "item exists" should {
       "add quantity to stock" in new Context {
 
-        val stock =
+        val op =
           p.createEntry(existingItemId, Delta(10))
-            .unsafeRunSync()
 
-        stock.quantity mustBe existingItemCount
+        IOAssertion {
+
+          for {
+            stock ← op
+            _ = stock.quantity mustBe existingItemCount
+          } yield ()
+        }
       }
     }
 
     "item does not exist" should {
       "fail" in new Context {
 
-        val stock =
-          p.createEntry(ItemId(10), Delta(50))
-            .attempt
-            .unsafeRunSync()
+        val arb = Gen.posNum[Int].filter(_ != existingItemId.value)
 
-        stock mustBe 'left
+        forAll(arb) { id: Int ⇒
+          val op =
+            p.createEntry(ItemId(id), Delta(50))
+
+          a[AppError.ItemNotFound.type] should be thrownBy IOAssertion {
+            op
+          }
+
+        }
+
       }
     }
 
@@ -59,7 +71,7 @@ class StockServiceSpec extends WordSpec with MustMatchers {
           category = Category("Some category"),
           id = existingItemId.some
         ).pure[IO]
-      case _ ⇒ IO.raiseError(new RuntimeException("Unexpected parameter"))
+      case _ ⇒ IO.raiseError(AppError.itemNotFound)
     }
   }
 
@@ -69,10 +81,7 @@ class StockServiceSpec extends WordSpec with MustMatchers {
       case _                ⇒ IO.raiseError(new RuntimeException("Unexpected parameter"))
     }
 
-    def count(id: ItemId): IO[Long] = id match {
-      case `existingItemId` ⇒ existingItemCount.pure[IO]
-      case _                ⇒ IO.raiseError(new RuntimeException("Unexpected parameter"))
-    }
+    def count(id: ItemId): IO[Long] = existingItemCount.pure[IO]
   }
 
   trait Context extends IOExecution {

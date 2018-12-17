@@ -5,6 +5,7 @@ import cats.implicits._
 import cats.effect.IO
 import domain.items._
 import domain.AppError
+import common.IOAssertion
 import http.SortBy
 import org.scalatest.{ MustMatchers, WordSpec }
 import eu.timepit.refined.auto._
@@ -23,35 +24,41 @@ class ItemServiceSpec extends WordSpec with MustMatchers {
     "name is unique" should {
       "create item" in new Context {
 
-        val item =
-          p.createItem(
-              Item(
-                name = expectedName,
-                price = expectedPrice,
-                category = expectedCategory,
-              )
+        val op = p
+          .createItem(
+            Item(
+              name = expectedName,
+              price = expectedPrice,
+              category = expectedCategory
             )
-            .unsafeRunSync()
+          )
 
-        item.id mustBe newItemId.some
+        IOAssertion {
+
+          for {
+            item ← op
+            _ = item.id mustBe Some(newItemId)
+          } yield ()
+        }
+
       }
     }
 
     "name is not unique" should {
       "fail" in new Context {
 
-        val item =
-          p.createItem(
-              Item(
-                name = existingName,
-                price = expectedPrice,
-                category = expectedCategory,
-              )
-            )
-            .attempt
-            .unsafeRunSync()
+        val op = p.createItem(
+          Item(
+            name = existingName,
+            price = expectedPrice,
+            category = expectedCategory,
+          )
+        )
 
-        item mustBe 'left
+        a[AppError.ItemAlreadyExists] should be thrownBy IOAssertion {
+          op
+        }
+
       }
     }
 
@@ -62,35 +69,41 @@ class ItemServiceSpec extends WordSpec with MustMatchers {
     "name is unique" should {
       "update item" in new Context {
 
-        val item =
-          p.update(
-              Item(
-                name = expectedName,
-                price = expectedPrice,
-                category = expectedCategory,
-              )
-            )
-            .unsafeRunSync()
+        val op = p.update(
+          Item(
+            name = expectedName,
+            price = expectedPrice,
+            category = expectedCategory
+          )
+        )
 
-        item.id mustBe newItemId.some
+        IOAssertion {
+
+          for {
+            item ← op
+            _ = item.id mustBe Some(newItemId)
+          } yield ()
+        }
+
       }
     }
 
     "name is not unique" should {
       "fail" in new Context {
 
-        val item =
+        val op =
           p.update(
-              Item(
-                name = existingName,
-                price = expectedPrice,
-                category = expectedCategory,
-              )
+            Item(
+              name = existingName,
+              price = expectedPrice,
+              category = expectedCategory,
             )
-            .attempt
-            .unsafeRunSync()
+          )
 
-        item mustBe 'left
+        a[AppError.ItemAlreadyExists] should be thrownBy IOAssertion {
+          op
+        }
+
       }
     }
 
