@@ -4,7 +4,7 @@ import ScalafmtPlugin._
 
 organization    := "name.amadoucisse"
 name            := "restoo"
-scalaVersion    := "2.12.7"
+scalaVersion    := "2.12.8"
 
 val CatsVersion         = "1.4.0"
 val CirceVersion        = "0.10.1"

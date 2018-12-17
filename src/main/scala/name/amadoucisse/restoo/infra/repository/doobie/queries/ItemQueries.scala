@@ -20,7 +20,7 @@ private[doobie] object ItemQueries extends SQLCommon {
   def touch(id: ItemId): Update0 = sql"""
     UPDATE items
     SET
-      updated_at = ${ DateTime.now}
+      updated_at = ${DateTime.now}
     WHERE id = $id
   """.update
 
