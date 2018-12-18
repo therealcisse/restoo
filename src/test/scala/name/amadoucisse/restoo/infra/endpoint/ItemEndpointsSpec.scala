@@ -38,27 +38,32 @@ class ItemEndpointsSpec
   test("add item") {
 
     IOAssertion {
-      val itemRepo = ItemRepositoryInMemoryInterpreter[IO]
-      val itemService = ItemService(itemRepo)
-
-      val entryRepo = EntryRepositoryInMemoryInterpreter[IO]
-      val stockService = StockService(entryRepo, itemRepo)
-
-      val swaggerConf = SwaggerConf("localhost", Nil)
-
-      val itemHttpService = ItemEndpoints.endpoints[IO](itemService, stockService, swaggerConf)
-
-      val item =
-        ItemEndpoints.ItemRequest(name = "Item 0", priceInCents = 9999, currency = "MAD", category = "Food & Drinks")
-
-      val request = Request[IO](Method.POST, Uri.uri("/")).withEntity(item.asJson)
 
       for {
+        itemRepo ← ItemRepositoryInMemoryInterpreter[IO]
+        itemService = ItemService(itemRepo)
+
+        entryRepo ← EntryRepositoryInMemoryInterpreter[IO]
+        stockService = StockService(entryRepo, itemRepo)
+
+        swaggerConf = SwaggerConf("localhost", Nil)
+
+        itemHttpService = ItemEndpoints.endpoints[IO](itemService, stockService, swaggerConf)
+
+        item = ItemEndpoints.ItemRequest(
+          name = "Item 0",
+          priceInCents = 9999,
+          currency = "MAD",
+          category = "Food & Drinks"
+        )
+
+        request = Request[IO](Method.POST, Uri.uri("/")).withEntity(item.asJson)
         response ← itemHttpService
           .run(request)
           .getOrElse(fail(s"Request was not handled: $request"))
         _ = response.status shouldEqual Created
       } yield {}
+
     }
 
   }
@@ -67,23 +72,26 @@ class ItemEndpointsSpec
 
     IOAssertion {
 
-      val itemRepo = ItemRepositoryInMemoryInterpreter[IO]
-      val itemService = ItemService(itemRepo)
-
-      val entryRepo = EntryRepositoryInMemoryInterpreter[IO]
-      val stockService = StockService(entryRepo, itemRepo)
-
-      val swaggerConf = SwaggerConf("localhost", Nil)
-
-      val itemHttpService = ItemEndpoints.endpoints[IO](itemService, stockService, swaggerConf)
-
-      implicit val itemDecoder: EntityDecoder[IO, Item] = jsonOf
-
-      val itemARequest =
-        ItemEndpoints.ItemRequest(name = "ItemA", priceInCents = 9999, currency = "MAD", category = "Food & Drinks")
-      val itemBRequest = itemARequest.copy(name = "ItemB")
-
       for {
+        itemRepo ← ItemRepositoryInMemoryInterpreter[IO]
+        itemService = ItemService(itemRepo)
+
+        entryRepo ← EntryRepositoryInMemoryInterpreter[IO]
+        stockService = StockService(entryRepo, itemRepo)
+
+        swaggerConf = SwaggerConf("localhost", Nil)
+
+        itemHttpService = ItemEndpoints.endpoints[IO](itemService, stockService, swaggerConf)
+
+        implicit0(itemDecoder: EntityDecoder[IO, Item]) = jsonOf[IO, Item]
+
+        itemARequest = ItemEndpoints.ItemRequest(
+          name = "ItemA",
+          priceInCents = 9999,
+          currency = "MAD",
+          category = "Food & Drinks"
+        )
+        itemBRequest = itemARequest.copy(name = "ItemB")
 
         // Add item A
         request ← IO.pure(Request[IO](Method.POST, Uri.uri("/")).withEntity(itemARequest.asJson))
@@ -125,46 +133,50 @@ class ItemEndpointsSpec
 
   test("disallow duplicate items on create") {
 
-    val itemRepo = ItemRepositoryInMemoryInterpreter[IO]
-    val itemService = ItemService(itemRepo)
-
-    val entryRepo = EntryRepositoryInMemoryInterpreter[IO]
-    val stockService = StockService(entryRepo, itemRepo)
-
-    val swaggerConf = SwaggerConf("localhost", Nil)
-
-    val itemHttpService = ItemEndpoints.endpoints[IO](itemService, stockService, swaggerConf)
-
-    val item =
-      ItemEndpoints.ItemRequest(name = "Item 0", priceInCents = 9999, currency = "MAD", category = "Food & Drinks")
-
-    // Create an item
     IOAssertion {
 
       for {
+        itemRepo ← ItemRepositoryInMemoryInterpreter[IO]
+        itemService = ItemService(itemRepo)
+
+        entryRepo ← EntryRepositoryInMemoryInterpreter[IO]
+        stockService = StockService(entryRepo, itemRepo)
+
+        swaggerConf = SwaggerConf("localhost", Nil)
+
+        itemHttpService = ItemEndpoints.endpoints[IO](itemService, stockService, swaggerConf)
+
+        item = ItemEndpoints.ItemRequest(
+          name = "Item 0",
+          priceInCents = 9999,
+          currency = "MAD",
+          category = "Food & Drinks"
+        )
         request ← IO.pure(Request[IO](Method.POST, Uri.uri("/")).withEntity(item.asJson))
-        response ← itemHttpService
-          .run(request)
-          .getOrElse(fail(s"Request was not handled: $request"))
-        _ = response.status shouldEqual Created
-      } yield {}
-    }
 
-    // Try adding a duplicate
-    IOAssertion {
+        // Create an item
+        _ ← for {
+          response ← itemHttpService
+            .run(request)
+            .getOrElse(fail(s"Request was not handled: $request"))
+          _ = response.status shouldEqual Created
+        } yield ()
 
-      for {
-        request ← IO.pure(Request[IO](Method.POST, Uri.uri("/")).withEntity(item.asJson))
-        response ← itemHttpService
-          .run(request)
-          .getOrElse(fail(s"Request was not handled: $request"))
+        // Try adding a duplicate
+        _ ← for {
+          request ← IO.pure(Request[IO](Method.POST, Uri.uri("/")).withEntity(item.asJson))
+          response ← itemHttpService
+            .run(request)
+            .getOrElse(fail(s"Request was not handled: $request"))
 
-        _ = response.status shouldEqual Conflict
+          _ = response.status shouldEqual Conflict
 
-        responseEntity = response.as[Json].unsafeRunSync().hcursor.downField("error")
+          responseEntity = response.as[Json].unsafeRunSync().hcursor.downField("error")
 
-        _ = responseEntity.get[String]("code") shouldEqual Right(ApiResponseCodes.CONFLICT)
-        _ = responseEntity.get[String]("type") shouldEqual Right("ItemAlreadyExists")
+          _ = responseEntity.get[String]("code") shouldEqual Right(ApiResponseCodes.CONFLICT)
+          _ = responseEntity.get[String]("type") shouldEqual Right("ItemAlreadyExists")
+        } yield {}
+
       } yield {}
     }
 
@@ -172,100 +184,101 @@ class ItemEndpointsSpec
 
   test("disallow invalid items") {
 
-    val itemRepo = ItemRepositoryInMemoryInterpreter[IO]
-    val itemService = ItemService(itemRepo)
-
-    val entryRepo = EntryRepositoryInMemoryInterpreter[IO]
-    val stockService = StockService(entryRepo, itemRepo)
-
-    val swaggerConf = SwaggerConf("localhost", Nil)
-
-    val itemHttpService = ItemEndpoints.endpoints[IO](itemService, stockService, swaggerConf)
-
-    val item = ItemEndpoints.ItemRequest(name = "", priceInCents = -9999, currency = "MAD", category = "")
-
-    implicit val itemDecoder: EntityDecoder[IO, Item] = jsonOf
-
     IOAssertion {
 
       for {
-        request ← IO.pure(Request[IO](Method.POST, Uri.uri("/")).withEntity(item.asJson))
-        response ← itemHttpService
-          .run(request)
-          .getOrElse(fail(s"Request was not handled: $request"))
+        itemRepo ← ItemRepositoryInMemoryInterpreter[IO]
+        itemService = ItemService(itemRepo)
 
-        _ = response.status shouldEqual UnprocessableEntity
+        entryRepo ← EntryRepositoryInMemoryInterpreter[IO]
+        stockService = StockService(entryRepo, itemRepo)
 
-        responseEntity = response.as[Json].unsafeRunSync().hcursor
-        _ = responseEntity.get[String]("code") shouldEqual Right(ApiResponseCodes.VALIDATION_FAILED)
-        _ = responseEntity.get[String]("type") shouldEqual Right("FieldErrors")
-        _ = responseEntity.get[Vector[Validation.FieldError]]("errors") match {
-          case Left(failure) ⇒ fail(failure.message)
-          case Right(errors) ⇒
-            errors.size shouldEqual 3
-        }
+        swaggerConf = SwaggerConf("localhost", Nil)
+
+        itemHttpService = ItemEndpoints.endpoints[IO](itemService, stockService, swaggerConf)
+
+        item = ItemEndpoints.ItemRequest(name = "", priceInCents = -9999, currency = "MAD", category = "")
+
+        implicit0(itemDecoder: EntityDecoder[IO, Item]) = jsonOf[IO, Item]
+
+        _ ← for {
+          request ← IO.pure(Request[IO](Method.POST, Uri.uri("/")).withEntity(item.asJson))
+          response ← itemHttpService
+            .run(request)
+            .getOrElse(fail(s"Request was not handled: $request"))
+
+          _ = response.status shouldEqual UnprocessableEntity
+
+          responseEntity = response.as[Json].unsafeRunSync().hcursor
+          _ = responseEntity.get[String]("code") shouldEqual Right(ApiResponseCodes.VALIDATION_FAILED)
+          _ = responseEntity.get[String]("type") shouldEqual Right("FieldErrors")
+          _ = responseEntity.get[Vector[Validation.FieldError]]("errors") match {
+            case Left(failure) ⇒ fail(failure.message)
+            case Right(errors) ⇒
+              errors.size shouldEqual 3
+          }
+        } yield {}
+
+        _ ← for {
+          createRequest ← IO.pure(
+            Request[IO](Method.POST, Uri.uri("/"))
+              .withEntity(
+                ItemEndpoints
+                  .ItemRequest(name = "Name", priceInCents = 9999, currency = "MAD", category = "Category")
+                  .asJson
+              )
+          )
+          createResponse ← itemHttpService
+            .run(createRequest)
+            .getOrElse(fail(s"Request was not handled: $createRequest"))
+          createdItem ← createResponse.as[Item]
+
+          id = createdItem.id.map(_.value.toString).get
+
+          // Invalid update
+          request = Request[IO](Method.PUT, Uri.unsafeFromString("/" + id)).withEntity(item.asJson)
+          response ← itemHttpService
+            .run(request)
+            .getOrElse(fail(s"Request was not handled: $request"))
+
+          _ = response.status shouldEqual UnprocessableEntity
+
+          responseEntity = response.as[Json].unsafeRunSync().hcursor
+          _ = responseEntity.get[String]("code") shouldEqual Right(ApiResponseCodes.VALIDATION_FAILED)
+          _ = responseEntity.get[String]("type") shouldEqual Right("FieldErrors")
+          _ = responseEntity.get[Vector[Validation.FieldError]]("errors") match {
+            case Left(failure) ⇒ fail(failure.message)
+            case Right(errors) ⇒
+              errors.size shouldEqual 3
+          }
+
+          // Invalid patch
+          patches = Vector(
+            json"""{"op":"replace","path":"/name","value":${item.name}}""",
+            json"""{"op":"replace","path":"/priceInCents","value":${item.priceInCents}}""",
+            json"""{"op":"replace","path":"/category","value":${item.category}}""",
+          )
+          request = Request[IO](Method.PATCH, Uri.unsafeFromString("/" + id))
+            .withEntity(patches.asJson)
+          response ← itemHttpService
+            .run(request)
+            .getOrElse(fail(s"Request was not handled: $request"))
+
+          _ = response.status shouldEqual UnprocessableEntity
+
+          responseEntity = response.as[Json].unsafeRunSync().hcursor
+          _ = responseEntity.get[String]("code") shouldEqual Right(ApiResponseCodes.VALIDATION_FAILED)
+          _ = responseEntity.get[String]("type") shouldEqual Right("FieldErrors")
+          _ = responseEntity.get[Vector[Validation.FieldError]]("errors") match {
+            case Left(failure) ⇒ fail(failure.message)
+            case Right(errors) ⇒
+              errors.size shouldEqual 3
+          }
+
+        } yield {}
+
       } yield {}
-    }
 
-    IOAssertion {
-
-      for {
-        createRequest ← IO.pure(
-          Request[IO](Method.POST, Uri.uri("/"))
-            .withEntity(
-              ItemEndpoints
-                .ItemRequest(name = "Name", priceInCents = 9999, currency = "MAD", category = "Category")
-                .asJson
-            )
-        )
-        createResponse ← itemHttpService
-          .run(createRequest)
-          .getOrElse(fail(s"Request was not handled: $createRequest"))
-        createdItem ← createResponse.as[Item]
-
-        id = createdItem.id.map(_.value.toString).get
-
-        // Invalid update
-        request = Request[IO](Method.PUT, Uri.unsafeFromString("/" + id)).withEntity(item.asJson)
-        response ← itemHttpService
-          .run(request)
-          .getOrElse(fail(s"Request was not handled: $request"))
-
-        _ = response.status shouldEqual UnprocessableEntity
-
-        responseEntity = response.as[Json].unsafeRunSync().hcursor
-        _ = responseEntity.get[String]("code") shouldEqual Right(ApiResponseCodes.VALIDATION_FAILED)
-        _ = responseEntity.get[String]("type") shouldEqual Right("FieldErrors")
-        _ = responseEntity.get[Vector[Validation.FieldError]]("errors") match {
-          case Left(failure) ⇒ fail(failure.message)
-          case Right(errors) ⇒
-            errors.size shouldEqual 3
-        }
-
-        // Invalid patch
-        patches = Vector(
-          json"""{"op":"replace","path":"/name","value":${item.name}}""",
-          json"""{"op":"replace","path":"/priceInCents","value":${item.priceInCents}}""",
-          json"""{"op":"replace","path":"/category","value":${item.category}}""",
-        )
-        request = Request[IO](Method.PATCH, Uri.unsafeFromString("/" + id))
-          .withEntity(patches.asJson)
-        response ← itemHttpService
-          .run(request)
-          .getOrElse(fail(s"Request was not handled: $request"))
-
-        _ = response.status shouldEqual UnprocessableEntity
-
-        responseEntity = response.as[Json].unsafeRunSync().hcursor
-        _ = responseEntity.get[String]("code") shouldEqual Right(ApiResponseCodes.VALIDATION_FAILED)
-        _ = responseEntity.get[String]("type") shouldEqual Right("FieldErrors")
-        _ = responseEntity.get[Vector[Validation.FieldError]]("errors") match {
-          case Left(failure) ⇒ fail(failure.message)
-          case Right(errors) ⇒
-            errors.size shouldEqual 3
-        }
-
-      } yield {}
     }
 
   }
@@ -274,27 +287,27 @@ class ItemEndpointsSpec
 
     IOAssertion {
 
-      val itemRepo = ItemRepositoryInMemoryInterpreter[IO]
-      val itemService = ItemService(itemRepo)
+      for {
 
-      val entryRepo = EntryRepositoryInMemoryInterpreter[IO]
-      val stockService = StockService(entryRepo, itemRepo)
+        itemRepo ← ItemRepositoryInMemoryInterpreter[IO]
+        itemService = ItemService(itemRepo)
 
-      val swaggerConf = SwaggerConf("localhost", Nil)
+        entryRepo ← EntryRepositoryInMemoryInterpreter[IO]
+        stockService = StockService(entryRepo, itemRepo)
 
-      val itemHttpService = ItemEndpoints.endpoints[IO](itemService, stockService, swaggerConf)
+        swaggerConf = SwaggerConf("localhost", Nil)
 
-      implicit val itemDecoder: EntityDecoder[IO, Item] = jsonOf
+        itemHttpService = ItemEndpoints.endpoints[IO](itemService, stockService, swaggerConf)
 
-      val item =
-        ItemEndpoints.ItemRequest(
+        implicit0(itemDecoder: EntityDecoder[IO, Item]) = jsonOf[IO, Item]
+
+        item = ItemEndpoints.ItemRequest(
           name = "Cheese Burger",
           priceInCents = 9999,
           currency = "MAD",
           category = "Food & Drinks"
         )
 
-      for {
         createRequest ← IO.pure(Request[IO](Method.POST, Uri.uri("/")).withEntity(item.asJson))
         createResponse ← itemHttpService
           .run(createRequest)
@@ -322,27 +335,27 @@ class ItemEndpointsSpec
 
     IOAssertion {
 
-      val itemRepo = ItemRepositoryInMemoryInterpreter[IO]
-      val itemService = ItemService(itemRepo)
+      for {
 
-      val entryRepo = EntryRepositoryInMemoryInterpreter[IO]
-      val stockService = StockService(entryRepo, itemRepo)
+        itemRepo ← ItemRepositoryInMemoryInterpreter[IO]
+        itemService = ItemService(itemRepo)
 
-      val swaggerConf = SwaggerConf("localhost", Nil)
+        entryRepo ← EntryRepositoryInMemoryInterpreter[IO]
+        stockService = StockService(entryRepo, itemRepo)
 
-      val itemHttpService = ItemEndpoints.endpoints[IO](itemService, stockService, swaggerConf)
+        swaggerConf = SwaggerConf("localhost", Nil)
 
-      implicit val itemDecoder: EntityDecoder[IO, Item] = jsonOf
+        itemHttpService = ItemEndpoints.endpoints[IO](itemService, stockService, swaggerConf)
 
-      val item =
-        ItemEndpoints.ItemRequest(
+        implicit0(itemDecoder: EntityDecoder[IO, Item]) = jsonOf[IO, Item]
+
+        item = ItemEndpoints.ItemRequest(
           name = "Cheese Burger",
           priceInCents = 9999,
           currency = "MAD",
           category = "Food & Drinks"
         )
 
-      for {
         createRequest ← IO.pure(Request[IO](Method.POST, Uri.uri("/")).withEntity(item.asJson))
         createResponse ← itemHttpService
           .run(createRequest)
@@ -411,23 +424,27 @@ class ItemEndpointsSpec
   test("delete item by id") {
 
     IOAssertion {
-
-      val itemRepo = ItemRepositoryInMemoryInterpreter[IO]
-      val itemService = ItemService[IO](itemRepo)
-
-      val entryRepo = EntryRepositoryInMemoryInterpreter[IO]
-      val stockService = StockService(entryRepo, itemRepo)
-
-      val swaggerConf = SwaggerConf("localhost", Nil)
-
-      val itemHttpService = ItemEndpoints.endpoints[IO](itemService, stockService, swaggerConf)
-
-      implicit val itemDecoder: EntityDecoder[IO, Item] = jsonOf
-
-      val item =
-        ItemEndpoints.ItemRequest(name = "Item 0", priceInCents = 9999, currency = "MAD", category = "Food & Drinks")
-
       for {
+
+        itemRepo ← ItemRepositoryInMemoryInterpreter[IO]
+        itemService = ItemService[IO](itemRepo)
+
+        entryRepo ← EntryRepositoryInMemoryInterpreter[IO]
+        stockService = StockService(entryRepo, itemRepo)
+
+        swaggerConf = SwaggerConf("localhost", Nil)
+
+        itemHttpService = ItemEndpoints.endpoints[IO](itemService, stockService, swaggerConf)
+
+        implicit0(itemDecoder: EntityDecoder[IO, Item]) = jsonOf[IO, Item]
+
+        item = ItemEndpoints.ItemRequest(
+          name = "Item 0",
+          priceInCents = 9999,
+          currency = "MAD",
+          category = "Food & Drinks"
+        )
+
         createRequest ← IO.pure(
           Request[IO](Method.POST, Uri.uri("/"))
             .withEntity(item.asJson)
@@ -457,30 +474,29 @@ class ItemEndpointsSpec
 
     IOAssertion {
 
-      val itemRepo = ItemRepositoryInMemoryInterpreter[IO]
-      val itemService = ItemService(itemRepo)
+      for {
+        itemRepo ← ItemRepositoryInMemoryInterpreter[IO]
+        itemService = ItemService(itemRepo)
 
-      val entryRepo = EntryRepositoryInMemoryInterpreter[IO]
-      val stockService = StockService(entryRepo, itemRepo)
+        entryRepo ← EntryRepositoryInMemoryInterpreter[IO]
+        stockService = StockService(entryRepo, itemRepo)
 
-      val swaggerConf = SwaggerConf("localhost", Nil)
+        swaggerConf = SwaggerConf("localhost", Nil)
 
-      val itemHttpService = ItemEndpoints.endpoints[IO](itemService, stockService, swaggerConf)
+        itemHttpService = ItemEndpoints.endpoints[IO](itemService, stockService, swaggerConf)
 
-      implicit val itemDecoder: EntityDecoder[IO, Item] = jsonOf
-      implicit val stockDecoder: EntityDecoder[IO, Stock] = jsonOf
+        implicit0(itemDecoder: EntityDecoder[IO, Item]) = jsonOf[IO, Item]
+        implicit0(stockDecoder: EntityDecoder[IO, Stock]) = jsonOf[IO, Stock]
 
-      val item =
-        ItemEndpoints.ItemRequest(
+        item = ItemEndpoints.ItemRequest(
           name = "Cheese Burger",
           priceInCents = 9999,
           currency = "MAD",
           category = "Food & Drinks"
         )
 
-      val entry = ItemEndpoints.StockRequest(delta = 1)
+        entry = ItemEndpoints.StockRequest(delta = 1)
 
-      for {
         createRequest ← IO.pure(Request[IO](Method.POST, Uri.uri("/")).withEntity(item.asJson))
         createResponse ← itemHttpService
           .run(createRequest)
@@ -532,30 +548,29 @@ class ItemEndpointsSpec
 
     IOAssertion {
 
-      val itemRepo = ItemRepositoryInMemoryInterpreter[IO]
-      val itemService = ItemService(itemRepo)
+      for {
+        itemRepo ← ItemRepositoryInMemoryInterpreter[IO]
+        itemService = ItemService(itemRepo)
 
-      val entryRepo = EntryRepositoryInMemoryInterpreter[IO]
-      val stockService = StockService(entryRepo, itemRepo)
+        entryRepo ← EntryRepositoryInMemoryInterpreter[IO]
+        stockService = StockService(entryRepo, itemRepo)
 
-      val swaggerConf = SwaggerConf("localhost", Nil)
+        swaggerConf = SwaggerConf("localhost", Nil)
 
-      val itemHttpService = ItemEndpoints.endpoints[IO](itemService, stockService, swaggerConf)
+        itemHttpService = ItemEndpoints.endpoints[IO](itemService, stockService, swaggerConf)
 
-      implicit val itemDecoder: EntityDecoder[IO, Item] = jsonOf
-      implicit val stockDecoder: EntityDecoder[IO, Stock] = jsonOf
+        implicit0(itemDecoder: EntityDecoder[IO, Item]) = jsonOf[IO, Item]
+        implicit0(stockDecoder: EntityDecoder[IO, Stock]) = jsonOf[IO, Stock]
 
-      val item =
-        ItemEndpoints.ItemRequest(
+        item = ItemEndpoints.ItemRequest(
           name = "Cheese Burger",
           priceInCents = 9999,
           currency = "MAD",
           category = "Food & Drinks"
         )
 
-      val entry = ItemEndpoints.StockRequest(delta = -1)
+        entry = ItemEndpoints.StockRequest(delta = -1)
 
-      for {
         createRequest ← IO.pure(Request[IO](Method.POST, Uri.uri("/")).withEntity(item.asJson))
         createResponse ← itemHttpService
           .run(createRequest)

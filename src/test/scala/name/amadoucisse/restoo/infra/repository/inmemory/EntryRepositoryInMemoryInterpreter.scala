@@ -2,36 +2,36 @@ package name.amadoucisse.restoo
 package infra
 package repository.inmemory
 
-import java.util.Random
+import scala.util.Random
 
-import cats._
 import cats.implicits._
 
 import domain.entries._
 import domain.items.ItemId
 
-import scala.collection.concurrent.TrieMap
+import cats.effect.concurrent.Ref
+import cats.effect.Sync
 
-final class EntryRepositoryInMemoryInterpreter[F[_]: Applicative] extends EntryRepositoryAlgebra[F] {
+final class EntryRepositoryInMemoryInterpreter[F[_]: Sync](state: Ref[F, Map[EntryId, Entry]])
+    extends EntryRepositoryAlgebra[F] {
 
-  private val cache = new TrieMap[EntryId, Entry]
-  private val random = new Random
-
-  def create(entry: Entry): F[Entry] = {
-    val id = EntryId(random.nextInt.abs)
-    val toSave = entry.copy(id = id.some)
-    cache += (id → toSave)
-    toSave.pure[F]
+  def create(entry: Entry): F[Entry] = state.modify { map ⇒
+    val id = EntryId(Random.nextInt.abs)
+    val value = entry.copy(id = id.some)
+    (map.updated(id, value), value)
   }
 
-  def count(id: ItemId): F[Long] = {
-    val itemEntries = cache.filter(_._2.itemId.value == id.value)
+  def count(id: ItemId): F[Long] = state.get.map { map ⇒
+    val itemEntries: Map[EntryId, Entry] = map.filter(_._2.itemId.value == id.value)
 
-    itemEntries.foldLeft(0L)(_ + _._2.delta.value).pure[F]
+    itemEntries.foldLeft(0L)(_ + _._2.delta.value)
   }
 }
 
 object EntryRepositoryInMemoryInterpreter {
-  def apply[F[_]: Applicative]: EntryRepositoryInMemoryInterpreter[F] =
-    new EntryRepositoryInMemoryInterpreter[F]
+  def apply[F[_]: Sync]: F[EntryRepositoryInMemoryInterpreter[F]] =
+    for {
+      ref ← Ref.of[F, Map[EntryId, Entry]](Map.empty)
+    } yield new EntryRepositoryInMemoryInterpreter[F](ref)
+
 }
