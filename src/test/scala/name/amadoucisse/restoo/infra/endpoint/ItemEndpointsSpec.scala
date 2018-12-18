@@ -2,7 +2,6 @@ package name.amadoucisse.restoo
 package infra
 package endpoint
 
-import name.amadoucisse.restoo.config.SwaggerConf
 import domain.items._
 import domain.entries._
 import common.IOAssertion
@@ -46,9 +45,7 @@ class ItemEndpointsSpec
         entryRepo ← EntryRepositoryInMemoryInterpreter[IO]
         stockService = StockService(entryRepo, itemRepo)
 
-        swaggerConf = SwaggerConf("localhost", Nil)
-
-        itemHttpService = ItemEndpoints.endpoints[IO](itemService, stockService, swaggerConf)
+        itemHttpService ← ItemEndpoints.endpoints[IO](itemService, stockService)
 
         item = ItemEndpoints.ItemRequest(
           name = "Item 0",
@@ -79,9 +76,7 @@ class ItemEndpointsSpec
         entryRepo ← EntryRepositoryInMemoryInterpreter[IO]
         stockService = StockService(entryRepo, itemRepo)
 
-        swaggerConf = SwaggerConf("localhost", Nil)
-
-        itemHttpService = ItemEndpoints.endpoints[IO](itemService, stockService, swaggerConf)
+        itemHttpService ← ItemEndpoints.endpoints[IO](itemService, stockService)
 
         implicit0(itemDecoder: EntityDecoder[IO, Item]) = jsonOf[IO, Item]
 
@@ -142,9 +137,7 @@ class ItemEndpointsSpec
         entryRepo ← EntryRepositoryInMemoryInterpreter[IO]
         stockService = StockService(entryRepo, itemRepo)
 
-        swaggerConf = SwaggerConf("localhost", Nil)
-
-        itemHttpService = ItemEndpoints.endpoints[IO](itemService, stockService, swaggerConf)
+        itemHttpService ← ItemEndpoints.endpoints[IO](itemService, stockService)
 
         item = ItemEndpoints.ItemRequest(
           name = "Item 0",
@@ -193,9 +186,7 @@ class ItemEndpointsSpec
         entryRepo ← EntryRepositoryInMemoryInterpreter[IO]
         stockService = StockService(entryRepo, itemRepo)
 
-        swaggerConf = SwaggerConf("localhost", Nil)
-
-        itemHttpService = ItemEndpoints.endpoints[IO](itemService, stockService, swaggerConf)
+        itemHttpService ← ItemEndpoints.endpoints[IO](itemService, stockService)
 
         item = ItemEndpoints.ItemRequest(name = "", priceInCents = -9999, currency = "MAD", category = "")
 
@@ -295,9 +286,7 @@ class ItemEndpointsSpec
         entryRepo ← EntryRepositoryInMemoryInterpreter[IO]
         stockService = StockService(entryRepo, itemRepo)
 
-        swaggerConf = SwaggerConf("localhost", Nil)
-
-        itemHttpService = ItemEndpoints.endpoints[IO](itemService, stockService, swaggerConf)
+        itemHttpService ← ItemEndpoints.endpoints[IO](itemService, stockService)
 
         implicit0(itemDecoder: EntityDecoder[IO, Item]) = jsonOf[IO, Item]
 
@@ -343,9 +332,7 @@ class ItemEndpointsSpec
         entryRepo ← EntryRepositoryInMemoryInterpreter[IO]
         stockService = StockService(entryRepo, itemRepo)
 
-        swaggerConf = SwaggerConf("localhost", Nil)
-
-        itemHttpService = ItemEndpoints.endpoints[IO](itemService, stockService, swaggerConf)
+        itemHttpService ← ItemEndpoints.endpoints[IO](itemService, stockService)
 
         implicit0(itemDecoder: EntityDecoder[IO, Item]) = jsonOf[IO, Item]
 
@@ -432,9 +419,7 @@ class ItemEndpointsSpec
         entryRepo ← EntryRepositoryInMemoryInterpreter[IO]
         stockService = StockService(entryRepo, itemRepo)
 
-        swaggerConf = SwaggerConf("localhost", Nil)
-
-        itemHttpService = ItemEndpoints.endpoints[IO](itemService, stockService, swaggerConf)
+        itemHttpService ← ItemEndpoints.endpoints[IO](itemService, stockService)
 
         implicit0(itemDecoder: EntityDecoder[IO, Item]) = jsonOf[IO, Item]
 
@@ -481,9 +466,7 @@ class ItemEndpointsSpec
         entryRepo ← EntryRepositoryInMemoryInterpreter[IO]
         stockService = StockService(entryRepo, itemRepo)
 
-        swaggerConf = SwaggerConf("localhost", Nil)
-
-        itemHttpService = ItemEndpoints.endpoints[IO](itemService, stockService, swaggerConf)
+        itemHttpService ← ItemEndpoints.endpoints[IO](itemService, stockService)
 
         implicit0(itemDecoder: EntityDecoder[IO, Item]) = jsonOf[IO, Item]
         implicit0(stockDecoder: EntityDecoder[IO, Stock]) = jsonOf[IO, Stock]
@@ -555,9 +538,7 @@ class ItemEndpointsSpec
         entryRepo ← EntryRepositoryInMemoryInterpreter[IO]
         stockService = StockService(entryRepo, itemRepo)
 
-        swaggerConf = SwaggerConf("localhost", Nil)
-
-        itemHttpService = ItemEndpoints.endpoints[IO](itemService, stockService, swaggerConf)
+        itemHttpService ← ItemEndpoints.endpoints[IO](itemService, stockService)
 
         implicit0(itemDecoder: EntityDecoder[IO, Item]) = jsonOf[IO, Item]
         implicit0(stockDecoder: EntityDecoder[IO, Stock]) = jsonOf[IO, Stock]

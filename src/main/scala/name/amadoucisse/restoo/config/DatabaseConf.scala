@@ -1,6 +1,7 @@
 package name.amadoucisse.restoo
 package config
 
+import cats.syntax.functor._
 import cats.effect.{ Async, ContextShift, Resource, Sync }
 import doobie.hikari._
 import doobie.util.ExecutionContexts
@@ -8,6 +9,8 @@ import org.flywaydb.core.Flyway
 import eu.timepit.refined.auto._
 import eu.timepit.refined.types.numeric.PosInt
 import eu.timepit.refined.types.string._
+
+import cats.mtl.ApplicativeAsk
 
 final case class DatabaseConf(url: NonEmptyString,
                               driverClassName: NonEmptyString,
@@ -17,11 +20,14 @@ final case class DatabaseConf(url: NonEmptyString,
 
 object DatabaseConf {
 
-  def dbTransactor[F[_]: Async: ContextShift](dbConf: DatabaseConf): Resource[F, HikariTransactor[F]] = {
-    val size = dbConf.concurrentConnectionsFactor * Runtime.getRuntime.availableProcessors()
-    ExecutionContexts.fixedThreadPool[F](size).flatMap { connectEC ⇒
-      ExecutionContexts.cachedThreadPool[F].flatMap { transactEC ⇒
-        HikariTransactor.newHikariTransactor[F](
+  def dbTransactor[F[_]: Async: ContextShift: ApplicativeAsk[?[_], AppConf]]: Resource[F, HikariTransactor[F]] =
+    for {
+      dbConf ← Resource.liftF(AppConf.dbConf[F])
+      size = dbConf.concurrentConnectionsFactor * Runtime.getRuntime.availableProcessors()
+      connectEC ← ExecutionContexts.fixedThreadPool[F](size)
+      transactEC ← ExecutionContexts.cachedThreadPool[F]
+      xa ← HikariTransactor
+        .newHikariTransactor[F](
           dbConf.driverClassName,
           dbConf.url,
           dbConf.user,
@@ -29,17 +35,15 @@ object DatabaseConf {
           connectEC,
           transactEC,
         )
-      }
-    }
-  }
+    } yield xa
 
   /**
    * Runs the flyway migrations against the target database
    *
    */
-  def migrateDb[F[_]](xa: HikariTransactor[F])(implicit S: Sync[F]): F[Unit] =
+  def migrateDb[F[_]: Sync](xa: HikariTransactor[F]): F[Unit] =
     xa.configure { ds ⇒
-      S.delay {
+      Sync[F].delay {
         val flyway = Flyway.configure().dataSource(ds).load()
         flyway.migrate()
         ()

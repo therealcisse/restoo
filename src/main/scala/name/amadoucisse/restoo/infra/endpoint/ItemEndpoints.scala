@@ -14,12 +14,14 @@ import org.http4s.{ EntityDecoder, HttpRoutes, QueryParamDecoder }
 import domain._
 import domain.items._
 import domain.entries._
-import config.SwaggerConf
+import config.{ AppConf, SwaggerConf }
 import http.{ HttpErrorHandler, JsonPatch, OrderBy, SortBy, SwaggerSpec }
 import service.{ ItemService, StockService }
 import utils.Validation
 import eu.timepit.refined._
 import eu.timepit.refined.auto._
+
+import cats.mtl.ApplicativeAsk
 
 final class ItemEndpoints[F[_]](implicit F: Sync[F]) extends Http4sDsl[F] {
   import ItemEndpoints._
@@ -203,7 +205,7 @@ final class ItemEndpoints[F[_]](implicit F: Sync[F]) extends Http4sDsl[F] {
     }
 
   def endpoints(itemService: ItemService[F], stockService: StockService[F], swaggerConf: SwaggerConf)(
-      implicit H: HttpErrorHandler[F, AppError]
+      implicit H: HttpErrorHandler[F, AppError],
   ): HttpRoutes[F] =
     H.handle {
       createEndpoint(itemService) <+>
@@ -219,10 +221,12 @@ final class ItemEndpoints[F[_]](implicit F: Sync[F]) extends Http4sDsl[F] {
 }
 
 object ItemEndpoints {
-  def endpoints[F[_]: Sync](itemService: ItemService[F], stockService: StockService[F], swaggerConf: SwaggerConf)(
+  def endpoints[F[_]: Sync: ApplicativeAsk[?[_], AppConf]](itemService: ItemService[F], stockService: StockService[F])(
       implicit H: HttpErrorHandler[F, AppError]
-  ): HttpRoutes[F] =
-    new ItemEndpoints[F].endpoints(itemService, stockService, swaggerConf)
+  ): F[HttpRoutes[F]] =
+    for {
+      swaggerConf ← AppConf.swaggerConf[F]
+    } yield new ItemEndpoints[F].endpoints(itemService, stockService, swaggerConf)
 
   final case class ItemRequest(
       name: String,

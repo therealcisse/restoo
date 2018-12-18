@@ -22,8 +22,10 @@ import org.http4s.metrics.prometheus.{ Prometheus, PrometheusExportService }
 import http.{ AppHttpErrorHandler, HttpErrorHandler, SwaggerSpec }
 import eu.timepit.refined.auto._
 
+import cats.mtl.ApplicativeAsk
+
 object Main extends IOApp {
-  import com.olegpy.meow.hierarchy._
+  import com.olegpy.meow.hierarchy.deriveMonadError
 
   @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
   implicit lazy val par: Parallel[IO, IO] = Parallel[IO, IO.Par].asInstanceOf[Parallel[IO, IO]]
@@ -31,16 +33,15 @@ object Main extends IOApp {
   final def run(args: List[String]): IO[ExitCode] =
     resource[IO].use(_ ⇒ IO.never)
 
-  private def resource[F[_]: Timer: ContextShift](implicit F: ConcurrentEffect[F],
-                                                  P: NonEmptyParallel[F, F]): Resource[F, Server[F]] = {
+  private def resource[F[_]: Timer: ContextShift: ApplicativeAsk[?[_], AppConf]](
+      implicit F: ConcurrentEffect[F],
+      P: NonEmptyParallel[F, F]
+  ): Resource[F, Server[F]] = {
     implicit val H: HttpErrorHandler[F, AppError] = new AppHttpErrorHandler[F]
 
     for {
-      conf ← Resource.liftF(AppConf.load[F])
+      xa ← DatabaseConf.dbTransactor[F]
 
-      xa ← DatabaseConf.dbTransactor(
-        conf.db,
-      )
       _ ← Resource.liftF(DatabaseConf.migrateDb(xa))
 
       itemRepo = DoobieItemRepositoryInterpreter(xa)
@@ -48,11 +49,13 @@ object Main extends IOApp {
       itemService = ItemService(itemRepo)
       stockService = StockService(entryRepo, itemRepo)
 
-      endpoints = ItemEndpoints.endpoints(itemService, stockService, conf.swagger)
+      endpoints ← Resource.liftF(ItemEndpoints.endpoints(itemService, stockService))
 
       registry = CollectorRegistry.defaultRegistry
 
-      service = Metrics[F](Prometheus(registry, prefix = conf.namespace))(
+      namespace ← Resource.liftF(AppConf.namespace[F])
+
+      service = Metrics[F](Prometheus(registry, prefix = namespace))(
         // TracingMiddleware.withoutSpan( // TODO: uncomment when opencensus is updated
         endpoints,
         //   ServiceData(name = "Restoo", version = "1.0.0")
@@ -77,8 +80,10 @@ object Main extends IOApp {
         ),
       ).orNotFound
 
+      port ← Resource.liftF(AppConf.serverPort[F])
+
       server ← BlazeServerBuilder[F]
-        .bindHttp(conf.server.port, "0.0.0.0")
+        .bindHttp(port, "0.0.0.0")
         .withHttpApp(httpApp)
         .resource
 
