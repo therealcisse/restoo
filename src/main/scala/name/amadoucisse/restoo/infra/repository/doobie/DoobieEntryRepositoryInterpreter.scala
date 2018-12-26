@@ -19,7 +19,7 @@ final class DoobieEntryRepositoryInterpreter[F[_]: Monad](val xa: Transactor[F])
     (EntryQueries
       .insert(entry)
       .withUniqueGeneratedKeys[Int]("id")
-      .map(id ⇒ entry.copy(id = EntryId(id).some)) <* ItemQueries.touch(entry.itemId).run)
+      .map(id ⇒ entry.copy(id = EntryId(id).some)) <* ItemQueries.touch(entry.itemId, entry.timestamp).run)
       .transact(xa)
 
   def count(id: ItemId): F[Long] =

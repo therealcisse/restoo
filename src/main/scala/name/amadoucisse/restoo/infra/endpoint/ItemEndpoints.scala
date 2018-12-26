@@ -3,7 +3,7 @@ package infra
 package endpoint
 
 import scala.language.higherKinds
-import cats.effect.Sync
+import cats.effect.{ Clock, Sync }
 import cats.implicits._
 import cats.Apply
 import io.circe.generic.auto._
@@ -21,9 +21,12 @@ import utils.Validation
 import eu.timepit.refined._
 import eu.timepit.refined.auto._
 
+import java.util.concurrent.TimeUnit
+import java.time.Instant
+
 import cats.mtl.ApplicativeAsk
 
-final class ItemEndpoints[F[_]](implicit F: Sync[F]) extends Http4sDsl[F] {
+final class ItemEndpoints[F[_]: Sync: Clock] extends Http4sDsl[F] {
   import ItemEndpoints._
 
   implicit val itemRequestDecoder: EntityDecoder[F, ItemRequest] = jsonOf
@@ -55,7 +58,9 @@ final class ItemEndpoints[F[_]](implicit F: Sync[F]) extends Http4sDsl[F] {
 
           item ← itemRequest.validate
 
-          toUpdate = item.copy(id = id.some)
+          now ← Clock[F].monotonic(TimeUnit.MILLISECONDS)
+
+          toUpdate = item.copy(id = id.some, updatedAt = DateTime(Instant.ofEpochMilli(now)))
           result ← itemService.update(toUpdate)
 
           resp ← Ok(result.asJson)
@@ -100,9 +105,11 @@ final class ItemEndpoints[F[_]](implicit F: Sync[F]) extends Http4sDsl[F] {
 
             maybeItemRequest.fold(
               r ⇒
-                F.delay(scribe.error(s"Error : ${r.message}. Could not create request from json patch : $patches")) *> F
+                Sync[F].delay(
+                  scribe.error(s"Error : ${r.message}. Could not create request from json patch : $patches")
+                ) *> Sync[F]
                   .raiseError(AppError.invalidJsonPatch),
-              F.pure
+              Sync[F].pure
             )
           }
 
@@ -156,7 +163,7 @@ final class ItemEndpoints[F[_]](implicit F: Sync[F]) extends Http4sDsl[F] {
                 .map(_.asJson.noSpaces)
                 .intersperse(",") ++ fs2.Stream("]")
           )
-        } else F.delay(scribe.error(s"Invalid order by param : $orderBy")) *> BadRequest()
+        } else Sync[F].delay(scribe.error(s"Invalid order by param : $orderBy")) *> BadRequest()
 
     }
   }
@@ -221,7 +228,8 @@ final class ItemEndpoints[F[_]](implicit F: Sync[F]) extends Http4sDsl[F] {
 }
 
 object ItemEndpoints {
-  def endpoints[F[_]: Sync: ApplicativeAsk[?[_], AppConf]](itemService: ItemService[F], stockService: StockService[F])(
+  def endpoints[F[_]: Sync: Clock: ApplicativeAsk[?[_], AppConf]](itemService: ItemService[F],
+                                                                  stockService: StockService[F])(
       implicit H: HttpErrorHandler[F, AppError]
   ): F[HttpRoutes[F]] =
     for {
@@ -235,13 +243,13 @@ object ItemEndpoints {
       category: String,
   ) {
 
-    def validate[F[_]](implicit F: Sync[F]): F[Item] = {
+    def validate[F[_]: Clock: Sync]: F[Item] = {
       import Validation._
       import cats.data.ValidatedNec
       import eu.timepit.refined.collection.NonEmpty
       import eu.timepit.refined.numeric.NonNegative
 
-      val item: ValidatedNec[FieldError, Item] = Apply[ValidatedNec[FieldError, ?]]
+      val item: ValidatedNec[FieldError, (Name, Money, Category)] = Apply[ValidatedNec[FieldError, ?]]
         .map4(
           refineV[NonEmpty](name)
             .leftMap(_ ⇒ FieldError("item.name", "error.empty"))
@@ -256,14 +264,22 @@ object ItemEndpoints {
             .leftMap(_ ⇒ FieldError("item.category", "error.empty"))
             .toValidatedNec,
         ) { (name, priceInCents, currency, category) ⇒
-          Item(
-            name = Name(name),
-            price = Money(priceInCents, currency),
-            category = Category(category),
+          (
+            Name(name),
+            Money(priceInCents, currency),
+            Category(category),
           )
         }
 
-      item.fold(errors ⇒ F.raiseError(AppError.validationFailed(errors)), _.pure[F])
+      item.fold(
+        errors ⇒ Sync[F].raiseError(AppError.validationFailed(errors)), {
+          case (name, price, category) ⇒
+            Clock[F]
+              .monotonic(TimeUnit.MILLISECONDS)
+              .map(millis ⇒ DateTime(Instant.ofEpochMilli(millis)))
+              .map(now ⇒ Item(name, price, category, now, now))
+        }
+      )
     }
   }
 

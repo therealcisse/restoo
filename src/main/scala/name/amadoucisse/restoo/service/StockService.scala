@@ -3,12 +3,15 @@ package service
 
 import cats.NonEmptyParallel
 import cats.implicits._
-import cats.effect.Sync
+import cats.effect.{ Clock, Sync }
 import domain.{ AppError, DateTime }
 import domain.items.{ ItemId, ItemRepositoryAlgebra }
 import domain.entries.{ Delta, Entry, EntryRepositoryAlgebra, Stock }
 
-final class StockService[F[_]](entryRepo: EntryRepositoryAlgebra[F], itemRepo: ItemRepositoryAlgebra[F])(
+import java.util.concurrent.TimeUnit
+import java.time.Instant
+
+final class StockService[F[_]: Clock](entryRepo: EntryRepositoryAlgebra[F], itemRepo: ItemRepositoryAlgebra[F])(
     implicit F: Sync[F],
     P: NonEmptyParallel[F, F]
 ) {
@@ -16,7 +19,11 @@ final class StockService[F[_]](entryRepo: EntryRepositoryAlgebra[F], itemRepo: I
   def createEntry(itemId: ItemId, delta: Delta): F[Stock] = {
     val getAction = getStock(itemId)
 
-    val addAction = entryRepo.create(Entry(itemId, delta, DateTime.now))
+    val getTime = Clock[F].monotonic(TimeUnit.MILLISECONDS)
+
+    val addAction = getTime >>= { now ⇒
+      entryRepo.create(Entry(itemId, delta, DateTime(Instant.ofEpochMilli(now))))
+    }
 
     getAction
       .flatMap { stock ⇒
@@ -29,12 +36,13 @@ final class StockService[F[_]](entryRepo: EntryRepositoryAlgebra[F], itemRepo: I
   }
 
   def getStock(itemId: ItemId): F[Stock] =
-    (itemRepo.get(itemId), entryRepo.count(itemId)).parMapN(Stock.apply)
+    (itemRepo.get(itemId), entryRepo.count(itemId)).parMapN(Stock(_, _))
 
 }
 
 object StockService {
-  def apply[F[_]: Sync](entryRepo: EntryRepositoryAlgebra[F],
-                        itemRepo: ItemRepositoryAlgebra[F])(implicit P: NonEmptyParallel[F, F]): StockService[F] =
+  def apply[F[_]: Sync: Clock](entryRepo: EntryRepositoryAlgebra[F], itemRepo: ItemRepositoryAlgebra[F])(
+      implicit P: NonEmptyParallel[F, F]
+  ): StockService[F] =
     new StockService[F](entryRepo, itemRepo)
 }

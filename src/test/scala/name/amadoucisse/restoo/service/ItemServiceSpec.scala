@@ -3,6 +3,7 @@ package service
 
 import cats.implicits._
 import cats.effect.IO
+import domain.DateTime
 import domain.items._
 import domain.AppError
 import common.IOAssertion
@@ -10,7 +11,9 @@ import http.SortBy
 import org.scalatest.{ MustMatchers, WordSpec }
 import eu.timepit.refined.auto._
 
-class ItemServiceSpec extends WordSpec with MustMatchers {
+import java.time.Instant
+
+class ItemServiceSpec extends WordSpec with MustMatchers with IOExecution {
   val newItemId = ItemId(1)
 
   val expectedName = Name("Item name")
@@ -19,19 +22,22 @@ class ItemServiceSpec extends WordSpec with MustMatchers {
 
   val existingName = Name("Item existing name")
 
+  val now = DateTime(Instant.now)
+
   "add item" when {
 
     "name is unique" should {
       "create item" in new Context {
 
-        val op = p
-          .createItem(
-            Item(
-              name = expectedName,
-              price = expectedPrice,
-              category = expectedCategory
-            )
-          )
+        val item = Item(
+          name = expectedName,
+          price = expectedPrice,
+          category = expectedCategory,
+          createdAt = now,
+          updatedAt = now,
+        )
+
+        val op = p.createItem(item)
 
         IOAssertion {
 
@@ -47,13 +53,15 @@ class ItemServiceSpec extends WordSpec with MustMatchers {
     "name is not unique" should {
       "fail" in new Context {
 
-        val op = p.createItem(
-          Item(
-            name = existingName,
-            price = expectedPrice,
-            category = expectedCategory,
-          )
+        val item = Item(
+          name = existingName,
+          price = expectedPrice,
+          category = expectedCategory,
+          createdAt = now,
+          updatedAt = now,
         )
+
+        val op = p.createItem(item)
 
         a[AppError.ItemAlreadyExists] should be thrownBy IOAssertion {
           op
@@ -69,13 +77,15 @@ class ItemServiceSpec extends WordSpec with MustMatchers {
     "name is unique" should {
       "update item" in new Context {
 
-        val op = p.update(
-          Item(
-            name = expectedName,
-            price = expectedPrice,
-            category = expectedCategory
-          )
+        val item = Item(
+          name = expectedName,
+          price = expectedPrice,
+          category = expectedCategory,
+          createdAt = now,
+          updatedAt = now,
         )
+
+        val op = p.update(item)
 
         IOAssertion {
 
@@ -91,14 +101,15 @@ class ItemServiceSpec extends WordSpec with MustMatchers {
     "name is not unique" should {
       "fail" in new Context {
 
-        val op =
-          p.update(
-            Item(
-              name = existingName,
-              price = expectedPrice,
-              category = expectedCategory,
-            )
-          )
+        val item = Item(
+          name = existingName,
+          price = expectedPrice,
+          category = expectedCategory,
+          createdAt = now,
+          updatedAt = now,
+        )
+
+        val op = p.update(item)
 
         a[AppError.ItemAlreadyExists] should be thrownBy IOAssertion {
           op
@@ -116,7 +127,9 @@ class ItemServiceSpec extends WordSpec with MustMatchers {
           name = expectedName,
           price = expectedPrice,
           category = expectedCategory,
-          id = newItemId.some
+          createdAt = now,
+          updatedAt = now,
+          id = newItemId.some,
         ).pure[IO]
 
       case (`existingName`, _, _) ⇒ IO.raiseError(AppError.itemAlreadyExists(item))
@@ -124,16 +137,18 @@ class ItemServiceSpec extends WordSpec with MustMatchers {
       case _ ⇒ IO.raiseError(new RuntimeException("Unexpected parameter"))
     }
 
-    def update(item: Item): IO[Item] = (item.name, item.price, item.category) match {
-      case (`expectedName`, `expectedPrice`, `expectedCategory`) ⇒
+    def update(item: Item): IO[Item] = (item.name, item.price, item.category, item.createdAt, item.updatedAt) match {
+      case (`expectedName`, `expectedPrice`, `expectedCategory`, createdAt, updatedAt) ⇒
         Item(
           name = expectedName,
           price = expectedPrice,
           category = expectedCategory,
-          id = newItemId.some
+          createdAt = createdAt,
+          updatedAt = updatedAt,
+          id = newItemId.some,
         ).pure[IO]
 
-      case (`existingName`, _, _) ⇒ IO.raiseError(AppError.itemAlreadyExists(item))
+      case (`existingName`, _, _, _, _) ⇒ IO.raiseError(AppError.itemAlreadyExists(item))
 
       case _ ⇒ IO.raiseError(new RuntimeException("Unexpected parameter"))
     }
@@ -143,7 +158,9 @@ class ItemServiceSpec extends WordSpec with MustMatchers {
         name = expectedName,
         price = expectedPrice,
         category = expectedCategory,
-        id = newItemId.some
+        createdAt = now,
+        updatedAt = now,
+        id = newItemId.some,
       ).pure[IO]
 
     def findByName(name: Name): IO[Item] = ???

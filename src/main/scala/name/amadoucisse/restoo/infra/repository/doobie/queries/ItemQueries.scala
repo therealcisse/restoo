@@ -17,10 +17,10 @@ private[doobie] object ItemQueries extends SQLCommon {
     VALUES (${item.name}, ${item.price.amountInCents}, ${item.price.currency}, ${item.category}, ${item.createdAt}, ${item.updatedAt})
   """.update
 
-  def touch(id: ItemId): Update0 = sql"""
+  def touch(id: ItemId, now: DateTime): Update0 = sql"""
     UPDATE items
     SET
-      updated_at = ${DateTime.now}
+      updated_at = $now
     WHERE id = $id
   """.update
 

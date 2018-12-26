@@ -10,8 +10,8 @@ final case class Item(
     name: Name,
     price: Money,
     category: Category,
-    createdAt: DateTime = DateTime.now,
-    updatedAt: DateTime = DateTime.now,
+    createdAt: DateTime,
+    updatedAt: DateTime,
     id: Option[ItemId] = None,
 )
 

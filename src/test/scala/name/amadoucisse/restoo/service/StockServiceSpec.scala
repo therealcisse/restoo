@@ -3,6 +3,7 @@ package service
 
 import cats.implicits._
 import cats.effect.IO
+import domain.DateTime
 import domain.items._
 import domain.entries._
 import http.SortBy
@@ -11,6 +12,8 @@ import org.scalatest.{ MustMatchers, WordSpec }
 import name.amadoucisse.restoo.domain.AppError
 import org.scalacheck.Gen
 import org.scalatest.prop.GeneratorDrivenPropertyChecks
+
+import java.time.Instant
 
 class StockServiceSpec extends WordSpec with MustMatchers with GeneratorDrivenPropertyChecks {
   val existingItemId = ItemId(1)
@@ -69,7 +72,9 @@ class StockServiceSpec extends WordSpec with MustMatchers with GeneratorDrivenPr
           name = Name("Some item name"),
           price = Money(999, "MAD"),
           category = Category("Some category"),
-          id = existingItemId.some
+          createdAt = DateTime(Instant.now),
+          updatedAt = DateTime(Instant.now),
+          id = existingItemId.some,
         ).pure[IO]
       case _ ⇒ IO.raiseError(AppError.itemNotFound)
     }

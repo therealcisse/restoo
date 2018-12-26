@@ -4,13 +4,15 @@ package repository.doobie
 
 import cats.effect.IO
 import domain.items.{ Category, ItemId, Name }
-import domain.AppError
+import domain.{ AppError, DateTime }
 import http.{ OrderBy, SortBy }
 import eu.timepit.refined.auto._
 import Arbitraries.item
 import common.IOAssertion
 import org.scalatest.Matchers
 import queries.ItemQueries
+
+import java.time.Instant
 
 class ItemQueryTypeCheckSpec extends RepositorySpec with Matchers {
   override def testDbName: String = getClass.getSimpleName
@@ -72,6 +74,6 @@ class ItemQueryTypeCheckSpec extends RepositorySpec with Matchers {
     )
     check(ItemQueries.select(ItemId(1)))
     check(ItemQueries.delete(ItemId(1)))
-    check(ItemQueries.touch(ItemId(1)))
+    check(ItemQueries.touch(ItemId(1), DateTime(Instant.now)))
   }
 }

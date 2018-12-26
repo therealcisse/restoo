@@ -7,7 +7,8 @@ name            := "restoo"
 scalaVersion    := "2.12.8"
 
 val CatsVersion         = "1.5.0"
-val CirceVersion        = "0.10.1"
+val CirceVersion        = "0.11.0"
+val CirceJava8Version   = "0.10.1"
 val CirceOpticsVersion  = "0.10.0"
 val MeowMTLVersion      = "0.2.0"
 val Http4sVersion       = "0.20.0-M4"
@@ -26,7 +27,7 @@ val SwaggerUIVersion  = "3.20.3"
 //val OpencensusLoggingVersion = "0.15.1"
 //val OpencensusZipkinVersion  = "0.15.1"
 
-val ScribeVersion = "2.7.0"
+val ScribeVersion = "2.7.1"
 
 val RefinedVersion = "0.9.3"
 
@@ -40,7 +41,7 @@ libraryDependencies ++= Seq(
   "io.circe"                %% "circe-generic-extras"   % CirceVersion,
   "io.circe"                %% "circe-optics"           % CirceOpticsVersion,
   "io.circe"                %% "circe-parser"           % CirceVersion,
-  "io.circe"                %% "circe-java8"            % CirceVersion,
+  "io.circe"                %% "circe-java8"            % CirceJava8Version,
 
   "org.tpolecat"            %% "doobie-core"            % DoobieVersion,
   "org.tpolecat"            %% "doobie-h2"              % DoobieVersion,

@@ -12,5 +12,4 @@ object DateTime {
   implicit val jsonEncoder: Encoder[DateTime] = deriveUnwrappedEncoder
   implicit val jsonDecoder: Decoder[DateTime] = deriveUnwrappedDecoder
 
-  def now: DateTime = DateTime(Instant.now)
 }
