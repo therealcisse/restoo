@@ -8,7 +8,7 @@ import cats.effect.Sync
 import cats.implicits._
 import domain.items._
 import domain.AppError
-import http.SortBy
+import http.{ Page, SortBy }
 
 import cats.effect.concurrent.Ref
 import cats.effect.Sync
@@ -60,7 +60,7 @@ final class ItemRepositoryInMemoryInterpreter[F[_]: Sync](state: Ref[F, Map[Item
     map - itemId
   }
 
-  def list(category: Option[Category], orderBy: Seq[SortBy]): fs2.Stream[F, Item] = {
+  def list(category: Option[Category], orderBy: Seq[SortBy], page: Option[Page]): fs2.Stream[F, Item] = {
 
     val xs = state.get.map { map ⇒
       val filtered = category match {
@@ -68,7 +68,16 @@ final class ItemRepositoryInMemoryInterpreter[F[_]: Sync](state: Ref[F, Map[Item
         case None        ⇒ map.values
       }
 
-      fs2.Stream.emits(filtered.toVector)
+      def doPage(list: Vector[Item], page: Option[Page]) =
+        page
+          .map {
+            case Page(offset, fetch) ⇒
+              val l = list.dropWhile(_.createdAt.value.compareTo(offset) <= 0)
+              fetch.map(l.take).getOrElse(l)
+          }
+          .getOrElse(list)
+
+      fs2.Stream.emits(doPage(filtered.toVector, page))
     }
 
     fs2.Stream.eval(xs).flatten

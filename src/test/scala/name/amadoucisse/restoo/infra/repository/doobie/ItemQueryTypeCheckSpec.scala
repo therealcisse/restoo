@@ -5,7 +5,7 @@ package repository.doobie
 import cats.effect.IO
 import domain.items.{ Category, ItemId, Name }
 import domain.{ AppError, DateTime }
-import http.{ OrderBy, SortBy }
+import http.{ OrderBy, Page, SortBy }
 import eu.timepit.refined.auto._
 import Arbitraries.item
 import common.IOAssertion
@@ -28,7 +28,7 @@ class ItemQueryTypeCheckSpec extends RepositorySpec with Matchers {
   test("NOT list any") {
     IOAssertion {
       for {
-        items ← repo.list(None, Nil).compile.toList
+        items ← repo.list(None, Nil, None).compile.toList
       } yield {
         items shouldBe 'empty
       }
@@ -54,7 +54,7 @@ class ItemQueryTypeCheckSpec extends RepositorySpec with Matchers {
       check(ItemQueries.byName(u.name))
       u.id.foreach(id ⇒ check(ItemQueries.update(u, id)))
     }
-    check(ItemQueries.selectAll(None, Nil))
+    check(ItemQueries.selectAll(None, Nil, None))
     check(
       ItemQueries.selectAll(
         None,
@@ -62,15 +62,17 @@ class ItemQueryTypeCheckSpec extends RepositorySpec with Matchers {
           SortBy("created_at", OrderBy.Descending),
           SortBy("updated_at", OrderBy.Ascending),
           SortBy("name", OrderBy.Descending)
-        )
-      )
+        ),
+        Some(Page(Instant.now, None)),
+      ),
     )
-    check(ItemQueries.selectAll(Some(Category("category")), Nil))
+    check(ItemQueries.selectAll(Some(Category("category")), Nil, None))
     check(
       ItemQueries.selectAll(
         Some(Category("category")),
-        Seq(SortBy("name", OrderBy.Descending), SortBy("category", OrderBy.Ascending))
-      )
+        Seq(SortBy("name", OrderBy.Descending), SortBy("category", OrderBy.Ascending)),
+        Some(Page(Instant.now, Some(30))),
+      ),
     )
     check(ItemQueries.select(ItemId(1)))
     check(ItemQueries.delete(ItemId(1)))

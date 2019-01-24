@@ -8,7 +8,7 @@ import doobie.implicits._
 import cats.implicits._
 import domain.DateTime
 import domain.items._
-import http.{ OrderBy, SortBy }
+import http.{ OrderBy, Page, SortBy }
 
 private[doobie] object ItemQueries extends SQLCommon {
 
@@ -65,7 +65,7 @@ private[doobie] object ItemQueries extends SQLCommon {
     DELETE FROM items WHERE id = $itemId
   """.update
 
-  def selectAll(category: Option[Category], sort: Seq[SortBy]): Query0[Item] = {
+  def selectAll(category: Option[Category], sort: Seq[SortBy], page: Option[Page]): Query0[Item] = {
 
     val baseSQL = sql"""
     SELECT
@@ -79,7 +79,10 @@ private[doobie] object ItemQueries extends SQLCommon {
     FROM items
     """
 
-    val conds = Fragments.whereAndOpt(category.map(c ⇒ fr"category = $c"))
+    val conds = Fragments.whereAndOpt(
+      category.map(c ⇒ fr"category = $c"),
+      page.map(l ⇒ fr"created_at > ${l.offset}")
+    )
 
     val getOrderBySQL: SortBy ⇒ Fragment = {
       case SortBy(name, OrderBy.Ascending)  ⇒ Fragment.const(s"$name ASC")
@@ -90,6 +93,16 @@ private[doobie] object ItemQueries extends SQLCommon {
       if (sort.isEmpty) Fragment.empty
       else fr"ORDER BY" ++ sort.toList.map(getOrderBySQL).intercalate(fr",")
 
-    (baseSQL ++ conds ++ orderBy).query
+    val getLimitSQL: Page ⇒ Fragment = {
+      case Page(_, Some(fetch)) ⇒ Fragment.const(s"LIMIT $fetch")
+      case _                    ⇒ Fragment.empty
+    }
+
+    val limitSQL = page match {
+      case Some(l) ⇒ getLimitSQL(l)
+      case None    ⇒ Fragment.empty
+    }
+
+    (baseSQL ++ conds ++ orderBy ++ limitSQL).query
   }
 }

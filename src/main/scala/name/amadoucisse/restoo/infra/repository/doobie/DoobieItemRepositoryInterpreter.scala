@@ -10,7 +10,7 @@ import doobie.implicits._
 import doobie.postgres._
 import domain.AppError
 import domain.items._
-import http.SortBy
+import http.{ Page, SortBy }
 import queries.ItemQueries
 
 final class DoobieItemRepositoryInterpreter[F[_]: Sync](val xa: Transactor[F]) extends ItemRepositoryAlgebra[F] {
@@ -72,8 +72,8 @@ final class DoobieItemRepositoryInterpreter[F[_]: Sync](val xa: Transactor[F]) e
   def delete(itemId: ItemId): F[Unit] =
     ItemQueries.delete(itemId).run.void.transact(xa)
 
-  def list(category: Option[Category], orderBy: Seq[SortBy]): fs2.Stream[F, Item] =
-    ItemQueries.selectAll(category, orderBy).stream.transact(xa)
+  def list(category: Option[Category], orderBy: Seq[SortBy], page: Option[Page]): fs2.Stream[F, Item] =
+    ItemQueries.selectAll(category, orderBy, page).stream.transact(xa)
 }
 
 object DoobieItemRepositoryInterpreter {

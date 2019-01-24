@@ -11,9 +11,9 @@ import domain.entries.{ Delta, Entry, EntryRepositoryAlgebra, Stock }
 import java.util.concurrent.TimeUnit
 import java.time.Instant
 
-final class StockService[F[_]: Clock](entryRepo: EntryRepositoryAlgebra[F], itemRepo: ItemRepositoryAlgebra[F])(
-    implicit F: Sync[F],
-    P: NonEmptyParallel[F, F]
+final class StockService[F[_]: Sync: Clock: Lambda[G[_] ⇒ NonEmptyParallel[G, G]]](
+    entryRepo: EntryRepositoryAlgebra[F],
+    itemRepo: ItemRepositoryAlgebra[F]
 ) {
 
   def createEntry(itemId: ItemId, delta: Delta): F[Stock] = {
@@ -28,7 +28,7 @@ final class StockService[F[_]: Clock](entryRepo: EntryRepositoryAlgebra[F], item
     getAction
       .flatMap { stock ⇒
         if (stock.quantity + delta.value < 0L) {
-          F.raiseError(AppError.itemOutOfStock)
+          Sync[F].raiseError(AppError.itemOutOfStock)
         } else {
           addAction >> getAction
         }
@@ -41,8 +41,9 @@ final class StockService[F[_]: Clock](entryRepo: EntryRepositoryAlgebra[F], item
 }
 
 object StockService {
-  def apply[F[_]: Sync: Clock](entryRepo: EntryRepositoryAlgebra[F], itemRepo: ItemRepositoryAlgebra[F])(
-      implicit P: NonEmptyParallel[F, F]
+  def apply[F[_]: Sync: Clock: Lambda[G[_] ⇒ NonEmptyParallel[G, G]]](
+      entryRepo: EntryRepositoryAlgebra[F],
+      itemRepo: ItemRepositoryAlgebra[F]
   ): StockService[F] =
     new StockService[F](entryRepo, itemRepo)
 }

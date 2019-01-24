@@ -5,7 +5,7 @@ import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.effect.Sync
 import domain.items.{ Category, Item, ItemId, ItemRepositoryAlgebra }
-import http.SortBy
+import http.{ Page, SortBy }
 
 final class ItemService[F[_]](itemRepo: ItemRepositoryAlgebra[F])(implicit F: Sync[F]) {
   def createItem(item: Item): F[Item] =
@@ -32,8 +32,8 @@ final class ItemService[F[_]](itemRepo: ItemRepositoryAlgebra[F])(implicit F: Sy
       _ ← F.delay(scribe.info(s"Updated item ${item.name} with id : ${item.id}"))
     } yield item
 
-  def list(category: Option[Category], orderBy: Seq[SortBy]): fs2.Stream[F, Item] =
-    itemRepo.list(category, orderBy)
+  def list(category: Option[Category], orderBy: Seq[SortBy], page: Option[Page]): fs2.Stream[F, Item] =
+    itemRepo.list(category, orderBy, page)
 }
 
 object ItemService {

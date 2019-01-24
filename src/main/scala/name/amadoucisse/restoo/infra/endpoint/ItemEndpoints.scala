@@ -15,7 +15,7 @@ import domain._
 import domain.items._
 import domain.entries._
 import config.{ AppConf, SwaggerConf }
-import http.{ HttpErrorHandler, JsonPatch, OrderBy, SortBy, SwaggerSpec }
+import http.{ HttpErrorHandler, JsonPatch, OrderBy, Page, SortBy, SwaggerSpec }
 import service.{ ItemService, StockService }
 import utils.Validation
 import eu.timepit.refined._
@@ -128,6 +128,13 @@ final class ItemEndpoints[F[_]: Sync: Clock] extends Http4sDsl[F] {
     implicit val categoryQueryParamDecoder: QueryParamDecoder[Category] =
       QueryParamDecoder[String].map(Category(_))
 
+    implicit val offsetQueryParamDecoder: QueryParamDecoder[Instant] =
+      QueryParamDecoder[Long].map(Instant.ofEpochMilli)
+
+    object OptionalOffsetQueryParamMatcher extends OptionalQueryParamDecoderMatcher[Instant]("offset")
+
+    object OptionalFetchQueryParamMatcher extends OptionalQueryParamDecoderMatcher[Int]("fetch")
+
     object OptionalCategoryQueryParamMatcher extends OptionalQueryParamDecoderMatcher[Category]("category")
 
     implicit val orderByQueryParamDecoder: QueryParamDecoder[List[SortBy]] =
@@ -148,14 +155,14 @@ final class ItemEndpoints[F[_]: Sync: Clock] extends Http4sDsl[F] {
       }
 
     HttpRoutes.of[F] {
-      case GET → Root :? OptionalCategoryQueryParamMatcher(maybeCategory) :? OptionalOrderByQueryParamMatcher(
+      case GET → Root :? OptionalCategoryQueryParamMatcher(maybeCategory) +& OptionalOrderByQueryParamMatcher(
             maybeOrderBy
-          ) ⇒
+          ) +& OptionalOffsetQueryParamMatcher(offset) +& OptionalFetchQueryParamMatcher(fetch) ⇒
         val orderBy = maybeOrderBy.getOrElse(Nil)
 
         if (isValidOrderByForItem(orderBy)) {
           val items = itemService
-            .list(maybeCategory, orderBy)
+            .list(maybeCategory, orderBy, offset.map(Page(_, fetch)))
 
           Ok(
             fs2.Stream("[") ++

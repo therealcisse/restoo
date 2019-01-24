@@ -6,7 +6,7 @@ import cats.effect.IO
 import domain.DateTime
 import domain.items._
 import domain.entries._
-import http.SortBy
+import http.{ Page, SortBy }
 import common.IOAssertion
 import org.scalatest.{ MustMatchers, WordSpec }
 import name.amadoucisse.restoo.domain.AppError
@@ -62,7 +62,7 @@ class StockServiceSpec extends WordSpec with MustMatchers with GeneratorDrivenPr
 
     def delete(itemId: ItemId): IO[Unit] = ???
 
-    def list(category: Option[Category], orderBy: Seq[SortBy]): fs2.Stream[IO, Item] = ???
+    def list(category: Option[Category], orderBy: Seq[SortBy], page: Option[Page]): fs2.Stream[IO, Item] = ???
     override def create(item: Item): IO[Item] = ???
     override def update(item: Item): IO[Item] = ???
 
