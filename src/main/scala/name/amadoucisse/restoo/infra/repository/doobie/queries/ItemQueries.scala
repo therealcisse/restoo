@@ -65,7 +65,7 @@ private[doobie] object ItemQueries extends SQLCommon {
     DELETE FROM items WHERE id = $itemId
   """.update
 
-  def selectAll(category: Option[Category], sort: Seq[SortBy], page: Option[Page]): Query0[Item] = {
+  def selectAll(category: Option[Category], sort: Seq[SortBy], page: Page): Query0[Item] = {
 
     val baseSQL = sql"""
     SELECT
@@ -81,7 +81,7 @@ private[doobie] object ItemQueries extends SQLCommon {
 
     val conds = Fragments.whereAndOpt(
       category.map(c ⇒ fr"category = $c"),
-      page.map(l ⇒ fr"created_at > ${l.offset}")
+      page.marker.map(value ⇒ fr"created_at > $value")
     )
 
     val getOrderBySQL: SortBy ⇒ Fragment = {
@@ -93,13 +93,8 @@ private[doobie] object ItemQueries extends SQLCommon {
       if (sort.isEmpty) Fragment.empty
       else fr"ORDER BY" ++ sort.toList.map(getOrderBySQL).intercalate(fr",")
 
-    val getLimitSQL: Page ⇒ Fragment = {
-      case Page(_, Some(fetch)) ⇒ Fragment.const(s"LIMIT $fetch")
-      case _                    ⇒ Fragment.empty
-    }
-
-    val limitSQL = page match {
-      case Some(l) ⇒ getLimitSQL(l)
+    val limitSQL = page.limit match {
+      case Some(l) ⇒ Fragment.const(s"LIMIT $l")
       case None    ⇒ Fragment.empty
     }
 

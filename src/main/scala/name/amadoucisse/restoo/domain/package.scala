@@ -9,8 +9,8 @@ package object domain {
 
   private val dateFormat = DateTimeFormatter.ISO_INSTANT
 
-  implicit val encodeInstant: Encoder[Instant] =
+  implicit val jsonEncoder: Encoder[Instant] =
     Encoder.encodeString.contramap[Instant](dateFormat.format(_))
-  implicit val decodeInstant: Decoder[Instant] =
+  implicit val jsonDecoder: Decoder[Instant] =
     Decoder.decodeString.map(str ⇒ dateFormat.parse(str, Instant.from(_)))
 }

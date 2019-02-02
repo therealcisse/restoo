@@ -13,80 +13,85 @@ import http.{ Page, SortBy }
 import cats.effect.concurrent.Ref
 import cats.effect.Sync
 
-final class ItemRepositoryInMemoryInterpreter[F[_]: Sync](state: Ref[F, Map[ItemId, Item]])
+final class ItemRepositoryInMemoryInterpreter[F[_]: Sync](ref: Ref[F, Map[ItemId, Item]])
     extends ItemRepositoryAlgebra[F] {
 
-  @SuppressWarnings(Array("org.wartremover.warts.Throw"))
-  def create(item: Item): F[Item] = state.modify { map ⇒
-    if (map.values.exists(u ⇒ u.name == item.name)) {
-      throw AppError.itemAlreadyExists(item)
-    } else {
-      val id = ItemId(Random.nextInt.abs)
-      val value = item.copy(id = id.some)
-      (map.updated(id, value), value)
+  def create(item: Item): F[Item] = {
+
+    val step: Map[ItemId, Item] ⇒ (Map[ItemId, Item], F[Item]) = { map ⇒
+      if (map.values.exists(u ⇒ u.name == item.name)) {
+        (map, Sync[F].raiseError(AppError.itemAlreadyExists(item)))
+      } else {
+        val id = ItemId(Random.nextInt.abs)
+        val value = item.copy(id = id.some)
+        (map.updated(id, value), Sync[F].pure(value))
+      }
     }
+
+    ref.modify(step).flatten
   }
 
-  @SuppressWarnings(Array("org.wartremover.warts.Throw"))
   def update(item: Item): F[Item] =
     item.id match {
       case Some(id) ⇒
-        state.modify { map ⇒
-          if (map.exists(it ⇒ !item.id.contains(it._1) && it._2.name == item.name))
-            throw AppError.itemAlreadyExists(item)
+        val step: Map[ItemId, Item] ⇒ (Map[ItemId, Item], F[Item]) = { map ⇒
+          if (map.exists { case (key, value) ⇒ id != key && value.name == item.name })
+            (map, Sync[F].raiseError(AppError.itemAlreadyExists(item)))
           else {
-            (map.updated(id, item), item)
+            (map.updated(id, item), Sync[F].pure(item))
           }
+
         }
+        ref.modify(step).flatten
 
       case None ⇒ Sync[F].raiseError(AppError.itemNotFound)
     }
 
-  def get(id: ItemId): F[Item] = state.get.flatMap { map ⇒
+  def get(id: ItemId): F[Item] = ref.get.flatMap { map ⇒
     map.get(id) match {
       case Some(item) ⇒ item.pure[F]
       case None       ⇒ Sync[F].raiseError(AppError.itemNotFound)
     }
   }
 
-  def findByName(name: Name): F[Item] = state.get.flatMap { map ⇒
+  def findByName(name: Name): F[Item] = ref.get.flatMap { map ⇒
     map.values.find(u ⇒ u.name == name) match {
       case Some(item) ⇒ item.pure[F]
       case None       ⇒ Sync[F].raiseError(AppError.itemNotFound)
     }
   }
 
-  def delete(itemId: ItemId): F[Unit] = state.update { map ⇒
+  def delete(itemId: ItemId): F[Unit] = ref.update { map ⇒
     map - itemId
   }
 
-  def list(category: Option[Category], orderBy: Seq[SortBy], page: Option[Page]): fs2.Stream[F, Item] = {
-
-    val xs = state.get.map { map ⇒
+  def list(category: Option[Category], orderBy: Seq[SortBy], page: Page): fs2.Stream[F, Item] =
+    fs2.Stream.eval(ref.get).flatMap { map ⇒
       val filtered = category match {
         case Some(value) ⇒ map.values.filter(_.category == value)
         case None        ⇒ map.values
       }
 
-      def doPage(list: Vector[Item], page: Option[Page]) =
-        page
-          .map {
-            case Page(offset, fetch) ⇒
-              val l = list.dropWhile(_.createdAt.value.compareTo(offset) <= 0)
-              fetch.map(l.take).getOrElse(l)
+      def paginated: (Vector[Item], Page) ⇒ Vector[Item] = {
+        case (list, Page(marker, limit)) ⇒
+          val ls = marker match {
+            case Some(m) ⇒ list.dropWhile(_.createdAt.value.compareTo(m) <= 0)
+            case None    ⇒ list
           }
-          .getOrElse(list)
 
-      fs2.Stream.emits(doPage(filtered.toVector, page))
+          limit match {
+            case Some(n) ⇒ ls.take(n)
+            case None    ⇒ ls
+          }
+      }
+
+      fs2.Stream.emits(paginated(filtered.toVector, page))
+
     }
 
-    fs2.Stream.eval(xs).flatten
-  }
 }
 
 object ItemRepositoryInMemoryInterpreter {
   def apply[F[_]: Sync]: F[ItemRepositoryInMemoryInterpreter[F]] =
-    for {
-      ref ← Ref.of[F, Map[ItemId, Item]](Map.empty)
-    } yield new ItemRepositoryInMemoryInterpreter[F](ref)
+    Ref.of[F, Map[ItemId, Item]](Map.empty).map(new ItemRepositoryInMemoryInterpreter[F](_))
 }

@@ -11,11 +11,10 @@ import cats.effect.IO
 import io.circe.generic.auto._
 import io.circe.syntax._
 import io.circe.literal._
-import io.circe.Json
+import io.circe._
 import http.{ ApiResponseCodes, AppHttpErrorHandler, HttpErrorHandler }
 import utils.Validation
 import org.http4s._
-import org.http4s.circe._
 import org.scalatest._
 import org.scalatest.prop.PropertyChecks
 import eu.timepit.refined.auto._
@@ -30,7 +29,8 @@ class ItemEndpointsSpec
     with PropertyChecks
     with Arbitraries
     with dsl.Http4sDsl[IO]
-    with IOExecution {
+    with IOExecution
+    with Codecs {
 
   implicit val H: HttpErrorHandler[IO, AppError] = new AppHttpErrorHandler[IO]
 
@@ -77,8 +77,6 @@ class ItemEndpointsSpec
         stockService = StockService(entryRepo, itemRepo)
 
         itemHttpService ← ItemEndpoints.endpoints[IO](itemService, stockService)
-
-        implicit0(itemDecoder: EntityDecoder[IO, Item]) = jsonOf[IO, Item]
 
         itemARequest = ItemEndpoints.ItemRequest(
           name = "ItemA",
@@ -190,8 +188,6 @@ class ItemEndpointsSpec
 
         item = ItemEndpoints.ItemRequest(name = "", priceInCents = -9999, currency = "MAD", category = "")
 
-        implicit0(itemDecoder: EntityDecoder[IO, Item]) = jsonOf[IO, Item]
-
         _ ← for {
           request ← IO.pure(Request[IO](Method.POST, Uri.uri("/")).withEntity(item.asJson))
           response ← itemHttpService
@@ -288,8 +284,6 @@ class ItemEndpointsSpec
 
         itemHttpService ← ItemEndpoints.endpoints[IO](itemService, stockService)
 
-        implicit0(itemDecoder: EntityDecoder[IO, Item]) = jsonOf[IO, Item]
-
         item = ItemEndpoints.ItemRequest(
           name = "Cheese Burger",
           priceInCents = 9999,
@@ -333,8 +327,6 @@ class ItemEndpointsSpec
         stockService = StockService(entryRepo, itemRepo)
 
         itemHttpService ← ItemEndpoints.endpoints[IO](itemService, stockService)
-
-        implicit0(itemDecoder: EntityDecoder[IO, Item]) = jsonOf[IO, Item]
 
         item = ItemEndpoints.ItemRequest(
           name = "Cheese Burger",
@@ -421,8 +413,6 @@ class ItemEndpointsSpec
 
         itemHttpService ← ItemEndpoints.endpoints[IO](itemService, stockService)
 
-        implicit0(itemDecoder: EntityDecoder[IO, Item]) = jsonOf[IO, Item]
-
         item = ItemEndpoints.ItemRequest(
           name = "Item 0",
           priceInCents = 9999,
@@ -467,9 +457,6 @@ class ItemEndpointsSpec
         stockService = StockService(entryRepo, itemRepo)
 
         itemHttpService ← ItemEndpoints.endpoints[IO](itemService, stockService)
-
-        implicit0(itemDecoder: EntityDecoder[IO, Item]) = jsonOf[IO, Item]
-        implicit0(stockDecoder: EntityDecoder[IO, Stock]) = jsonOf[IO, Stock]
 
         item = ItemEndpoints.ItemRequest(
           name = "Cheese Burger",
@@ -539,9 +526,6 @@ class ItemEndpointsSpec
         stockService = StockService(entryRepo, itemRepo)
 
         itemHttpService ← ItemEndpoints.endpoints[IO](itemService, stockService)
-
-        implicit0(itemDecoder: EntityDecoder[IO, Item]) = jsonOf[IO, Item]
-        implicit0(stockDecoder: EntityDecoder[IO, Stock]) = jsonOf[IO, Stock]
 
         item = ItemEndpoints.ItemRequest(
           name = "Cheese Burger",

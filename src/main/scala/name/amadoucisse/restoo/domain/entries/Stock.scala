@@ -2,18 +2,9 @@ package name.amadoucisse.restoo
 package domain
 package entries
 
-import io.circe.{ Decoder, Encoder }
-import io.circe.generic.semiauto.{ deriveDecoder, deriveEncoder }
-
 import items.Item
 
 final case class Stock(
     item: Item,
     quantity: Long,
 )
-
-object Stock {
-  implicit def jsonEncoder: Encoder[Stock] = deriveEncoder
-  implicit def jsonDecoder: Decoder[Stock] = deriveDecoder
-
-}

@@ -1,3 +1,5 @@
+import com.scalapenos.sbt.prompt.SbtPrompt.autoImport._
+import com.scalapenos.sbt.prompt._
 import ReleaseTransformations._
 import java.io.File
 import ScalafmtPlugin._
@@ -6,8 +8,12 @@ organization    := "name.amadoucisse"
 name            := "restoo"
 scalaVersion    := "2.12.8"
 
-val CatsVersion         = "1.5.0"
-val CirceVersion        = "0.11.0"
+promptTheme := PromptTheme(List(
+  text(_ => "[restoo]", fg(64)).padRight(" λ ")
+ ))
+
+val CatsVersion         = "1.6.0"
+val CirceVersion        = "0.11.1"
 val CirceJava8Version   = "0.10.1"
 val CirceOpticsVersion  = "0.10.0"
 val MeowMTLVersion      = "0.2.0"
@@ -38,6 +44,7 @@ libraryDependencies ++= Seq(
 
   "io.circe"                %% "circe-core"             % CirceVersion,
   "io.circe"                %% "circe-literal"          % CirceVersion,
+  "io.circe"                %% "circe-generic"          % CirceVersion,
   "io.circe"                %% "circe-generic-extras"   % CirceVersion,
   "io.circe"                %% "circe-optics"           % CirceOpticsVersion,
   "io.circe"                %% "circe-parser"           % CirceVersion,

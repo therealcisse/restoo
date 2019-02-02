@@ -12,26 +12,24 @@ import domain.items.ItemId
 import cats.effect.concurrent.Ref
 import cats.effect.Sync
 
-final class EntryRepositoryInMemoryInterpreter[F[_]: Sync](state: Ref[F, Map[EntryId, Entry]])
+final class EntryRepositoryInMemoryInterpreter[F[_]: Sync](ref: Ref[F, Map[EntryId, Entry]])
     extends EntryRepositoryAlgebra[F] {
 
-  def create(entry: Entry): F[Entry] = state.modify { map ⇒
+  def create(entry: Entry): F[Entry] = ref.modify { map ⇒
     val id = EntryId(Random.nextInt.abs)
     val value = entry.copy(id = id.some)
     (map.updated(id, value), value)
   }
 
-  def count(id: ItemId): F[Long] = state.get.map { map ⇒
-    val itemEntries: Map[EntryId, Entry] = map.filter(_._2.itemId.value == id.value)
+  def count(id: ItemId): F[Long] = ref.get.map { map ⇒
+    val entries: List[Entry] = map.values.filter(_.itemId == id).toList
 
-    itemEntries.foldLeft(0L)(_ + _._2.delta.value)
+    entries.foldMap(_.delta.value.toLong)
   }
 }
 
 object EntryRepositoryInMemoryInterpreter {
   def apply[F[_]: Sync]: F[EntryRepositoryInMemoryInterpreter[F]] =
-    for {
-      ref ← Ref.of[F, Map[EntryId, Entry]](Map.empty)
-    } yield new EntryRepositoryInMemoryInterpreter[F](ref)
+    Ref.of[F, Map[EntryId, Entry]](Map.empty).map(new EntryRepositoryInMemoryInterpreter[F](_))
 
 }

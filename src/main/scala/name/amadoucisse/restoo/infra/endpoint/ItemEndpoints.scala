@@ -8,7 +8,7 @@ import cats.implicits._
 import cats.Apply
 import io.circe.generic.auto._
 import io.circe.syntax._
-import org.http4s.circe._
+import org.http4s.circe.jsonOf
 import org.http4s.dsl.Http4sDsl
 import org.http4s.{ EntityDecoder, HttpRoutes, QueryParamDecoder }
 import domain._
@@ -26,12 +26,8 @@ import java.time.Instant
 
 import cats.mtl.ApplicativeAsk
 
-final class ItemEndpoints[F[_]: Sync: Clock] extends Http4sDsl[F] {
+final class ItemEndpoints[F[_]: Sync: Clock] extends Http4sDsl[F] with Codecs {
   import ItemEndpoints._
-
-  implicit val itemRequestDecoder: EntityDecoder[F, ItemRequest] = jsonOf
-
-  implicit val stockRequestDecoder: EntityDecoder[F, StockRequest] = jsonOf
 
   implicit val jsonPatchDecoder: EntityDecoder[F, Vector[JsonPatch]] = jsonOf
 
@@ -131,9 +127,9 @@ final class ItemEndpoints[F[_]: Sync: Clock] extends Http4sDsl[F] {
     implicit val offsetQueryParamDecoder: QueryParamDecoder[Instant] =
       QueryParamDecoder[Long].map(Instant.ofEpochMilli)
 
-    object OptionalOffsetQueryParamMatcher extends OptionalQueryParamDecoderMatcher[Instant]("offset")
+    object OptionalMarkerQueryParamMatcher extends OptionalQueryParamDecoderMatcher[Instant]("marker")
 
-    object OptionalFetchQueryParamMatcher extends OptionalQueryParamDecoderMatcher[Int]("fetch")
+    object OptionalLimitQueryParamMatcher extends OptionalQueryParamDecoderMatcher[Int]("limit")
 
     object OptionalCategoryQueryParamMatcher extends OptionalQueryParamDecoderMatcher[Category]("category")
 
@@ -157,12 +153,12 @@ final class ItemEndpoints[F[_]: Sync: Clock] extends Http4sDsl[F] {
     HttpRoutes.of[F] {
       case GET → Root :? OptionalCategoryQueryParamMatcher(maybeCategory) +& OptionalOrderByQueryParamMatcher(
             maybeOrderBy
-          ) +& OptionalOffsetQueryParamMatcher(offset) +& OptionalFetchQueryParamMatcher(fetch) ⇒
+          ) +& OptionalMarkerQueryParamMatcher(marker) +& OptionalLimitQueryParamMatcher(limit) ⇒
         val orderBy = maybeOrderBy.getOrElse(Nil)
 
         if (isValidOrderByForItem(orderBy)) {
           val items = itemService
-            .list(maybeCategory, orderBy, offset.map(Page(_, fetch)))
+            .list(maybeCategory, orderBy, Page(marker, limit))
 
           Ok(
             fs2.Stream("[") ++

@@ -2,9 +2,6 @@ package name.amadoucisse.restoo
 package domain
 package items
 
-import io.circe.{ Decoder, Encoder }
-import io.circe.generic.semiauto.{ deriveDecoder, deriveEncoder }
-
 @SuppressWarnings(Array("org.wartremover.warts.DefaultArguments"))
 final case class Item(
     name: Name,
@@ -16,9 +13,6 @@ final case class Item(
 )
 
 object Item {
-  implicit def jsonEncoder: Encoder[Item] = deriveEncoder
-  implicit def jsonDecoder: Decoder[Item] = deriveDecoder
-
   import eu.timepit.refined.W
   import eu.timepit.refined.generic.Equal
   import eu.timepit.refined.boolean.Or

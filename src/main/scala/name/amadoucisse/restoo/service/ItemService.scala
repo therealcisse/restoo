@@ -32,7 +32,7 @@ final class ItemService[F[_]](itemRepo: ItemRepositoryAlgebra[F])(implicit F: Sy
       _ ← F.delay(scribe.info(s"Updated item ${item.name} with id : ${item.id}"))
     } yield item
 
-  def list(category: Option[Category], orderBy: Seq[SortBy], page: Option[Page]): fs2.Stream[F, Item] =
+  def list(category: Option[Category], orderBy: Seq[SortBy], page: Page): fs2.Stream[F, Item] =
     itemRepo.list(category, orderBy, page)
 }
 

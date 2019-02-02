@@ -28,7 +28,7 @@ class ItemQueryTypeCheckSpec extends RepositorySpec with Matchers {
   test("NOT list any") {
     IOAssertion {
       for {
-        items ← repo.list(None, Nil, None).compile.toList
+        items ← repo.list(None, Nil, Page(None, None)).compile.toList
       } yield {
         items shouldBe 'empty
       }
@@ -54,7 +54,7 @@ class ItemQueryTypeCheckSpec extends RepositorySpec with Matchers {
       check(ItemQueries.byName(u.name))
       u.id.foreach(id ⇒ check(ItemQueries.update(u, id)))
     }
-    check(ItemQueries.selectAll(None, Nil, None))
+    check(ItemQueries.selectAll(None, Nil, Page(None, None)))
     check(
       ItemQueries.selectAll(
         None,
@@ -63,15 +63,15 @@ class ItemQueryTypeCheckSpec extends RepositorySpec with Matchers {
           SortBy("updated_at", OrderBy.Ascending),
           SortBy("name", OrderBy.Descending)
         ),
-        Some(Page(Instant.now, None)),
+        Page(Some(Instant.now), None),
       ),
     )
-    check(ItemQueries.selectAll(Some(Category("category")), Nil, None))
+    check(ItemQueries.selectAll(Some(Category("category")), Nil, Page(None, None)))
     check(
       ItemQueries.selectAll(
         Some(Category("category")),
         Seq(SortBy("name", OrderBy.Descending), SortBy("category", OrderBy.Ascending)),
-        Some(Page(Instant.now, Some(30))),
+        Page(Some(Instant.now), Some(30)),
       ),
     )
     check(ItemQueries.select(ItemId(1)))

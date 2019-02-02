@@ -3,4 +3,4 @@ package http
 
 import java.time.Instant
 
-final case class Page(offset: Instant, fetch: Option[Int])
+final case class Page(marker: Option[Instant], limit: Option[Int])

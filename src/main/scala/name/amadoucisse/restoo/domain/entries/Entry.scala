@@ -11,5 +11,3 @@ final case class Entry(
     timestamp: DateTime,
     id: Option[EntryId] = None,
 )
-
-object Entry {}
