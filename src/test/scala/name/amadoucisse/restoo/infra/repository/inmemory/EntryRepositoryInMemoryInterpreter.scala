@@ -15,10 +15,15 @@ import cats.effect.Sync
 final class EntryRepositoryInMemoryInterpreter[F[_]: Sync](ref: Ref[F, Map[EntryId, Entry]])
     extends EntryRepositoryAlgebra[F] {
 
-  def create(entry: Entry): F[Entry] = ref.modify { map ⇒
-    val id = EntryId(Random.nextInt.abs)
-    val value = entry.copy(id = id.some)
-    (map.updated(id, value), value)
+  def create(entry: Entry): F[Entry] = {
+    val step: Map[EntryId, Entry] ⇒ (Map[EntryId, Entry], F[Entry]) = { map ⇒
+      val id = EntryId(Random.nextInt.abs)
+      val value = entry.copy(id = id.some)
+      (map.updated(id, value), Sync[F].pure(value))
+    }
+
+    ref.modify(step).flatten
+
   }
 
   def count(id: ItemId): F[Long] = ref.get.map { map ⇒

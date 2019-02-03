@@ -11,7 +11,7 @@ import domain.entries.{ Delta, Entry, EntryRepositoryAlgebra, Stock }
 import java.util.concurrent.TimeUnit
 import java.time.Instant
 
-final class StockService[F[_]: Sync: Clock: Lambda[G[_] ⇒ NonEmptyParallel[G, G]]](
+final class StockService[F[_]: Sync: Clock: λ[G[_] ⇒ NonEmptyParallel[G, G]]](
     entryRepo: EntryRepositoryAlgebra[F],
     itemRepo: ItemRepositoryAlgebra[F]
 ) {
@@ -41,7 +41,7 @@ final class StockService[F[_]: Sync: Clock: Lambda[G[_] ⇒ NonEmptyParallel[G, 
 }
 
 object StockService {
-  def apply[F[_]: Sync: Clock: Lambda[G[_] ⇒ NonEmptyParallel[G, G]]](
+  def apply[F[_]: Sync: Clock: λ[G[_] ⇒ NonEmptyParallel[G, G]]](
       entryRepo: EntryRepositoryAlgebra[F],
       itemRepo: ItemRepositoryAlgebra[F]
   ): StockService[F] =

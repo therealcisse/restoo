@@ -34,7 +34,7 @@ object Main extends IOApp {
     resource[IO].use(_ ⇒ IO.never)
 
   private def resource[
-      F[_]: Timer: ContextShift: Lambda[G[_] ⇒ NonEmptyParallel[G, G]]: ConcurrentEffect: ApplicativeAsk[?[_], AppConf]
+      F[_]: Timer: ContextShift: λ[G[_] ⇒ NonEmptyParallel[G, G]]: ConcurrentEffect: ApplicativeAsk[?[_], AppConf]
   ]: Resource[F, Server[F]] = {
     implicit val H: HttpErrorHandler[F, AppError] = new AppHttpErrorHandler[F]
 
