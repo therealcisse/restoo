@@ -6,6 +6,7 @@ import cats.effect.Sync
 
 trait Codecs {
 
+  import http.JsonPatch
   import io.circe.{ Decoder, Encoder }
   import io.circe.generic.extras.decoding.UnwrappedDecoder
   import io.circe.generic.extras.encoding.UnwrappedEncoder
@@ -17,4 +18,8 @@ trait Codecs {
 
   protected final implicit def jsonDecoder[F[_]: Sync, A <: Product: Decoder]: EntityDecoder[F, A] = jsonOf[F, A]
   protected final implicit def jsonEncoder[F[_]: Sync, A <: Product: Encoder]: EntityEncoder[F, A] = jsonEncoderOf[F, A]
+
+  protected implicit def jsonPatchDecoder[F[_]: Sync]: EntityDecoder[F, Vector[JsonPatch]] =
+    jsonOf[F, Vector[JsonPatch]]
+
 }

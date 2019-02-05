@@ -4,10 +4,9 @@ package entries
 
 import items.ItemId
 
-@SuppressWarnings(Array("org.wartremover.warts.DefaultArguments"))
 final case class Entry(
     itemId: ItemId,
     delta: Delta,
     timestamp: DateTime,
-    id: Option[EntryId] = None,
+    id: EntryId,
 )

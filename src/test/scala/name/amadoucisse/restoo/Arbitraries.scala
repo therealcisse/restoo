@@ -27,7 +27,7 @@ trait Arbitraries {
       category ← arbitrary[String]
       createdAt ← arbitrary[Instant]
       updatedAt ← arbitrary[Instant]
-      id ← Gen.option(Gen.posNum[Int])
+      id ← Gen.posNum[Long]
     } yield
       Item(
         Name(name),
@@ -35,22 +35,22 @@ trait Arbitraries {
         Category(category),
         DateTime(createdAt),
         DateTime(updatedAt),
-        id.map(ItemId(_))
+        id = ItemId(id)
       )
   }
 
   implicit val entry: Arbitrary[Entry] = Arbitrary[Entry] {
     for {
-      itemId ← Gen.posNum[Int]
+      itemId ← Gen.posNum[Long]
       delta ← Gen.choose(-10, 100)
       timestamp ← arbitrary[Instant]
-      id ← Gen.option(Gen.posNum[Int])
+      id ← Gen.posNum[Long]
     } yield
       Entry(
         ItemId(itemId),
         Delta(delta),
         DateTime(timestamp),
-        id.map(EntryId(_))
+        id = EntryId(id)
       )
   }
 }

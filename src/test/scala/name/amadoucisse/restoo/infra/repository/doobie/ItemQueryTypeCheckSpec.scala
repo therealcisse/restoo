@@ -52,7 +52,7 @@ class ItemQueryTypeCheckSpec extends RepositorySpec with Matchers {
     item.arbitrary.sample.map { u ⇒
       check(ItemQueries.insert(u))
       check(ItemQueries.byName(u.name))
-      u.id.foreach(id ⇒ check(ItemQueries.update(u, id)))
+      check(ItemQueries.update(u))
     }
     check(ItemQueries.selectAll(None, Nil, Page(None, None)))
     check(

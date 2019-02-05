@@ -7,9 +7,13 @@ import io.prometheus.client.CollectorRegistry
 import config.{ AppConf, DatabaseConf }
 import domain.AppError
 import infra.endpoint.{ Index, ItemEndpoints }
-import infra.repository.doobie.{ DoobieEntryRepositoryInterpreter, DoobieItemRepositoryInterpreter }
+import infra.repository.doobie.{
+  DoobieEntryRepositoryInterpreter,
+  DoobieIdRepositoryInterpreter,
+  DoobieItemRepositoryInterpreter
+}
 import doobie.util.ExecutionContexts
-import service.{ ItemService, StockService }
+import service.{ IdService, ItemService, StockService }
 import org.http4s.implicits._
 import org.http4s.server.{ Router, Server }
 import org.http4s.server.staticcontent.{ MemoryCache, WebjarService, webjarService }
@@ -43,12 +47,14 @@ object Main extends IOApp {
 
       _ ← Resource.liftF(DatabaseConf.migrateDb(xa))
 
+      idRepo = DoobieIdRepositoryInterpreter(xa)
       itemRepo = DoobieItemRepositoryInterpreter(xa)
       entryRepo = DoobieEntryRepositoryInterpreter(xa)
+      idService = IdService(idRepo)
       itemService = ItemService(itemRepo)
-      stockService = StockService(entryRepo, itemRepo)
+      stockService = StockService(entryRepo, itemRepo, idRepo)
 
-      endpoints ← Resource.liftF(ItemEndpoints.endpoints(itemService, stockService))
+      endpoints ← Resource.liftF(ItemEndpoints.endpoints(itemService, stockService, idService))
 
       registry = CollectorRegistry.defaultRegistry
 

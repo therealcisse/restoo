@@ -33,8 +33,6 @@ val SwaggerUIVersion  = "3.20.5"
 //val OpencensusLoggingVersion = "0.15.1"
 //val OpencensusZipkinVersion  = "0.15.1"
 
-val ScribeVersion = "2.7.1"
-
 val RefinedVersion = "0.9.4"
 
 libraryDependencies ++= Seq(
@@ -80,8 +78,6 @@ libraryDependencies ++= Seq(
   "eu.timepit"              %% "refined"                              % RefinedVersion,
   "eu.timepit"              %% "refined-scalacheck"                   % RefinedVersion,
   "eu.timepit"              %% "refined-pureconfig"                   % RefinedVersion,
-
-  "com.outr"                %% "scribe"                               % ScribeVersion,
 )
 
 addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.9")

@@ -35,6 +35,7 @@ class ItemServiceSpec extends WordSpec with MustMatchers with IOExecution {
           category = expectedCategory,
           createdAt = now,
           updatedAt = now,
+          id = newItemId,
         )
 
         val op = p.createItem(item)
@@ -42,8 +43,8 @@ class ItemServiceSpec extends WordSpec with MustMatchers with IOExecution {
         IOAssertion {
 
           for {
-            item ← op
-            _ = item.id mustBe Some(newItemId)
+            _ ← op
+            _ = item.id mustBe newItemId
           } yield ()
         }
 
@@ -59,6 +60,7 @@ class ItemServiceSpec extends WordSpec with MustMatchers with IOExecution {
           category = expectedCategory,
           createdAt = now,
           updatedAt = now,
+          id = newItemId,
         )
 
         val op = p.createItem(item)
@@ -83,6 +85,7 @@ class ItemServiceSpec extends WordSpec with MustMatchers with IOExecution {
           category = expectedCategory,
           createdAt = now,
           updatedAt = now,
+          id = newItemId,
         )
 
         val op = p.update(item)
@@ -90,8 +93,8 @@ class ItemServiceSpec extends WordSpec with MustMatchers with IOExecution {
         IOAssertion {
 
           for {
-            item ← op
-            _ = item.id mustBe Some(newItemId)
+            _ ← op
+            _ = item.id mustBe newItemId
           } yield ()
         }
 
@@ -107,6 +110,7 @@ class ItemServiceSpec extends WordSpec with MustMatchers with IOExecution {
           category = expectedCategory,
           createdAt = now,
           updatedAt = now,
+          id = newItemId,
         )
 
         val op = p.update(item)
@@ -121,34 +125,20 @@ class ItemServiceSpec extends WordSpec with MustMatchers with IOExecution {
   }
 
   final class ItemRepositoryAlgebraImpl extends ItemRepositoryAlgebra[IO] {
-    def create(item: Item): IO[Item] = (item.name, item.price, item.category) match {
+    def create(item: Item): IO[Unit] = (item.name, item.price, item.category) match {
       case (`expectedName`, `expectedPrice`, `expectedCategory`) ⇒
-        Item(
-          name = expectedName,
-          price = expectedPrice,
-          category = expectedCategory,
-          createdAt = now,
-          updatedAt = now,
-          id = newItemId.some,
-        ).pure[IO]
+        ().pure[IO]
 
       case (`existingName`, _, _) ⇒ IO.raiseError(AppError.itemAlreadyExists(item))
 
       case _ ⇒ IO.raiseError(new RuntimeException("Unexpected parameter"))
     }
 
-    def update(item: Item): IO[Item] = (item.name, item.price, item.category, item.createdAt, item.updatedAt) match {
-      case (`expectedName`, `expectedPrice`, `expectedCategory`, createdAt, updatedAt) ⇒
-        Item(
-          name = expectedName,
-          price = expectedPrice,
-          category = expectedCategory,
-          createdAt = createdAt,
-          updatedAt = updatedAt,
-          id = newItemId.some,
-        ).pure[IO]
+    def update(item: Item): IO[Unit] = (item.name, item.price, item.category) match {
+      case (`expectedName`, `expectedPrice`, `expectedCategory`) ⇒
+        ().pure[IO]
 
-      case (`existingName`, _, _, _, _) ⇒ IO.raiseError(AppError.itemAlreadyExists(item))
+      case (`existingName`, _, _) ⇒ IO.raiseError(AppError.itemAlreadyExists(item))
 
       case _ ⇒ IO.raiseError(new RuntimeException("Unexpected parameter"))
     }
@@ -160,7 +150,7 @@ class ItemServiceSpec extends WordSpec with MustMatchers with IOExecution {
         category = expectedCategory,
         createdAt = now,
         updatedAt = now,
-        id = newItemId.some,
+        id = newItemId,
       ).pure[IO]
 
     def findByName(name: Name): IO[Item] = ???

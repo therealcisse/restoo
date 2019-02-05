@@ -325,13 +325,12 @@ object SwaggerSpec {
         "required" → fromBoolean(true),
       ),
       obj(
-        "in" → fromString("body"),
-        "name" → fromString("body"),
-        "description" → fromString("Delta object"),
+        "in" → fromString("query"),
+        "name" → fromString("delta"),
+        "description" → fromString("Increment/decrement value"),
+        "type" → fromString("integer"),
+        "format" → fromString("int32"),
         "required" → fromBoolean(true),
-        "schema" → obj(
-          "$ref" → fromString("#/definitions/Delta")
-        )
       )
     ),
     "responses" → obj(
@@ -379,17 +378,6 @@ object SwaggerSpec {
         ),
         "category" → obj(
           "type" → fromString("string"),
-        ),
-      )
-    ),
-    "Delta" → obj(
-      "type" → fromString("object"),
-      "required" → Json
-        .arr(fromString("delta")),
-      "properties" → obj(
-        "delta" → obj(
-          "type" → fromString("integer"),
-          "format" → fromString("int32"),
         ),
       )
     ),

@@ -3,7 +3,6 @@ package infra
 package repository.doobie
 
 import cats.syntax.functor._
-import cats.syntax.option._
 import cats.effect.Sync
 import doobie._
 import doobie.implicits._
@@ -15,49 +14,44 @@ import queries.ItemQueries
 
 final class DoobieItemRepositoryInterpreter[F[_]: Sync](val xa: Transactor[F]) extends ItemRepositoryAlgebra[F] {
 
-  def create(item: Item): F[Item] =
+  def create(item: Item): F[Unit] =
     ItemQueries
       .insert(item)
-      .withUniqueGeneratedKeys[Int]("id")
-      .map(id ⇒ item.copy(id = ItemId(id).some))
+      .run
       .attemptSomeSqlState {
         case sqlstate.class23.UNIQUE_VIOLATION ⇒ AppError.itemAlreadyExists(item)
       }
       .flatMap {
-        case Right(x) ⇒ FC.pure(x)
-        case Left(e)  ⇒ FC.raiseError[Item](e)
+        case Left(e) ⇒ FC.raiseError[Unit](e)
+        case _       ⇒ FC.pure(())
       }
       .transact(xa)
 
-  def update(item: Item): F[Item] =
-    item.id match {
-      case Some(id) ⇒
-        ItemQueries
-          .update(item, id)
-          .run
-          .attemptSomeSqlState {
-            case sqlstate.class23.UNIQUE_VIOLATION ⇒ AppError.itemAlreadyExists(item)
-          }
-          .flatMap {
-            case Right(affectedRows) ⇒
-              if (affectedRows == 1) getItem(id)
-              else FC.raiseError[Item](AppError.itemNotFound)
+  def update(item: Item): F[Unit] =
+    ItemQueries
+      .update(item)
+      .run
+      .attemptSomeSqlState {
+        case sqlstate.class23.UNIQUE_VIOLATION ⇒ AppError.itemAlreadyExists(item)
+      }
+      .flatMap {
+        case Right(affectedRows) ⇒
+          if (affectedRows == 1) FC.pure(())
+          else FC.raiseError[Unit](AppError.itemNotFound)
 
-            case Left(e) ⇒ FC.raiseError[Item](e)
-          }
-          .transact(xa)
-
-      case None ⇒ Sync[F].raiseError(AppError.itemNotFound)
-    }
-
-  private def getItem(id: ItemId): ConnectionIO[Item] =
-    ItemQueries.select(id).option.flatMap {
-      case Some(item) ⇒ FC.pure(item)
-      case None       ⇒ FC.raiseError[Item](AppError.itemNotFound)
-    }
+        case Left(e) ⇒ FC.raiseError[Unit](e)
+      }
+      .transact(xa)
 
   def get(id: ItemId): F[Item] =
-    getItem(id).transact(xa)
+    ItemQueries
+      .select(id)
+      .option
+      .flatMap {
+        case Some(item) ⇒ FC.pure(item)
+        case None       ⇒ FC.raiseError[Item](AppError.itemNotFound)
+      }
+      .transact(xa)
 
   def findByName(name: Name): F[Item] =
     ItemQueries

@@ -8,15 +8,14 @@ import cats.implicits._
 import cats.Apply
 import io.circe.generic.auto._
 import io.circe.syntax._
-import org.http4s.circe.jsonOf
 import org.http4s.dsl.Http4sDsl
-import org.http4s.{ EntityDecoder, HttpRoutes, QueryParamDecoder }
+import org.http4s.{ HttpRoutes, QueryParamDecoder }
 import domain._
 import domain.items._
 import domain.entries._
 import config.{ AppConf, SwaggerConf }
 import http.{ HttpErrorHandler, JsonPatch, OrderBy, Page, SortBy, SwaggerSpec }
-import service.{ ItemService, StockService }
+import service.{ IdService, ItemService, StockService }
 import utils.Validation
 import eu.timepit.refined._
 import eu.timepit.refined.auto._
@@ -29,19 +28,30 @@ import cats.mtl.ApplicativeAsk
 final class ItemEndpoints[F[_]: Sync: Clock] extends Http4sDsl[F] with Codecs {
   import ItemEndpoints._
 
-  implicit val jsonPatchDecoder: EntityDecoder[F, Vector[JsonPatch]] = jsonOf
-
-  private def createEndpoint(itemService: ItemService[F]): HttpRoutes[F] =
+  private def createEndpoint(itemService: ItemService[F], idService: IdService[F]): HttpRoutes[F] =
     HttpRoutes.of[F] {
       case req @ POST → Root ⇒
         for {
           itemRequest ← req.as[ItemRequest]
 
-          item ← itemRequest.validate
+          (name, price, category) ← itemRequest.validate
 
-          result ← itemService.createItem(item)
+          newId ← idService.newItemId
 
-          resp ← Created(result.asJson)
+          now ← Clock[F].monotonic(TimeUnit.MILLISECONDS)
+
+          item = Item(
+            name = name,
+            price = price,
+            category = category,
+            createdAt = DateTime(Instant.ofEpochMilli(now)),
+            updatedAt = DateTime(Instant.ofEpochMilli(now)),
+            id = newId,
+          )
+
+          _ ← itemService.createItem(item)
+
+          resp ← Created(item.asJson)
         } yield resp
 
     }
@@ -50,16 +60,24 @@ final class ItemEndpoints[F[_]: Sync: Clock] extends Http4sDsl[F] with Codecs {
     HttpRoutes.of[F] {
       case req @ PUT → (Root / ItemId(id)) ⇒
         for {
+          item ← itemService.getItem(id)
+
           itemRequest ← req.as[ItemRequest]
 
-          item ← itemRequest.validate
+          (name, price, category) ← itemRequest.validate
 
           now ← Clock[F].monotonic(TimeUnit.MILLISECONDS)
 
-          toUpdate = item.copy(id = id.some, updatedAt = DateTime(Instant.ofEpochMilli(now)))
-          result ← itemService.update(toUpdate)
+          updated = item.copy(
+            name = name,
+            price = price,
+            category = category,
+            updatedAt = DateTime(Instant.ofEpochMilli(now))
+          )
 
-          resp ← Ok(result.asJson)
+          _ ← itemService.update(updated)
+
+          resp ← Ok(updated.asJson)
         } yield resp
 
     }
@@ -84,8 +102,9 @@ final class ItemEndpoints[F[_]: Sync: Clock] extends Http4sDsl[F] with Codecs {
 
           patches ← req
             .as[Vector[JsonPatch]]
-            .ensureOr(_ ⇒ AppError.invalidJsonPatch) { patches ⇒
-              patches.nonEmpty && isValidJsonPatchForItem(patches)
+            .ensureOr(patches ⇒ AppError.invalidJsonPatch(s"Could not create request from json patch : $patches")) {
+              patches ⇒
+                patches.nonEmpty && isValidJsonPatchForItem(patches)
             }
 
           item ← itemService.getItem(id)
@@ -101,20 +120,27 @@ final class ItemEndpoints[F[_]: Sync: Clock] extends Http4sDsl[F] with Codecs {
 
             maybeItemRequest.fold(
               r ⇒
-                Sync[F].delay(
-                  scribe.error(s"Error : ${r.message}. Could not create request from json patch : $patches")
-                ) *> Sync[F]
-                  .raiseError(AppError.invalidJsonPatch),
+                Sync[F].raiseError(
+                  AppError
+                    .invalidJsonPatch(s"Error : ${r.message}. Could not create request from json patch : $patches")
+              ),
               Sync[F].pure
             )
           }
 
-          item ← itemRequest.validate
+          now ← Clock[F].monotonic(TimeUnit.MILLISECONDS)
 
-          updated = item.copy(id = id.some)
-          result ← itemService.update(updated)
+          (name, price, category) ← itemRequest.validate
 
-          resp ← Ok(result.asJson)
+          updated = item.copy(
+            name = name,
+            price = price,
+            category = category,
+            updatedAt = DateTime(Instant.ofEpochMilli(now))
+          )
+          _ ← itemService.update(updated)
+
+          resp ← Ok(updated.asJson)
         } yield resp
 
     }
@@ -166,7 +192,7 @@ final class ItemEndpoints[F[_]: Sync: Clock] extends Http4sDsl[F] with Codecs {
                 .map(_.asJson.noSpaces)
                 .intersperse(",") ++ fs2.Stream("]")
           )
-        } else Sync[F].delay(scribe.error(s"Invalid order by param : $orderBy")) *> BadRequest()
+        } else BadRequest(s"Invalid value for `sort_by` parameter: $orderBy")
 
     }
   }
@@ -189,15 +215,25 @@ final class ItemEndpoints[F[_]: Sync: Clock] extends Http4sDsl[F] with Codecs {
         } yield resp
     }
 
-  private def createStockEntryEndpoint(stockService: StockService[F]): HttpRoutes[F] =
+  private def createStockEntryEndpoint(stockService: StockService[F]): HttpRoutes[F] = {
+    implicit val deltaQueryParamDecoder: QueryParamDecoder[Delta] =
+      QueryParamDecoder[Int].map(Delta(_))
+
+    object DeltaQueryParamMatcher extends ValidatingQueryParamDecoderMatcher[Delta]("delta")
+
     HttpRoutes.of[F] {
-      case req @ PUT → (Root / ItemId(itemId) / "stocks") ⇒
-        for {
-          stockRequest ← req.as[StockRequest]
-          stock ← stockService.createEntry(itemId, Delta(stockRequest.delta))
-          resp ← Ok(stock.asJson)
-        } yield resp
+      case PUT → (Root / ItemId(itemId) / "stocks") :? DeltaQueryParamMatcher(deltaValidated) ⇒
+        deltaValidated.fold(
+          _ ⇒ BadRequest("unable to parse argument `delta`"),
+          value ⇒
+            for {
+              stock ← stockService.createEntry(itemId, value)
+              resp ← Ok(stock.asJson)
+            } yield resp
+        )
+
     }
+  }
 
   private def getStockEndpoint(stockService: StockService[F]): HttpRoutes[F] =
     HttpRoutes.of[F] {
@@ -214,11 +250,14 @@ final class ItemEndpoints[F[_]: Sync: Clock] extends Http4sDsl[F] with Codecs {
         Ok(SwaggerSpec.swaggerSpec(swaggerConf))
     }
 
-  def endpoints(itemService: ItemService[F], stockService: StockService[F], swaggerConf: SwaggerConf)(
+  def endpoints(itemService: ItemService[F],
+                stockService: StockService[F],
+                idService: IdService[F],
+                swaggerConf: SwaggerConf)(
       implicit H: HttpErrorHandler[F, AppError],
   ): HttpRoutes[F] =
     H.handle {
-      createEndpoint(itemService) <+>
+      createEndpoint(itemService, idService) <+>
         patchEndpoint(itemService) <+>
         updateEndpoint(itemService) <+>
         deleteItemEndpoint(itemService) <+>
@@ -232,12 +271,14 @@ final class ItemEndpoints[F[_]: Sync: Clock] extends Http4sDsl[F] with Codecs {
 
 object ItemEndpoints {
   def endpoints[F[_]: Sync: Clock: ApplicativeAsk[?[_], AppConf]](itemService: ItemService[F],
-                                                                  stockService: StockService[F])(
+                                                                  stockService: StockService[F],
+                                                                  idService: IdService[F],
+  )(
       implicit H: HttpErrorHandler[F, AppError]
   ): F[HttpRoutes[F]] =
     for {
       swaggerConf ← AppConf.swaggerConf[F]
-    } yield new ItemEndpoints[F].endpoints(itemService, stockService, swaggerConf)
+    } yield new ItemEndpoints[F].endpoints(itemService, stockService, idService, swaggerConf)
 
   final case class ItemRequest(
       name: String,
@@ -246,7 +287,7 @@ object ItemEndpoints {
       category: String,
   ) {
 
-    def validate[F[_]: Clock: Sync]: F[Item] = {
+    def validate[F[_]: Clock: Sync]: F[(Name, Money, Category)] = {
       import Validation._
       import cats.data.ValidatedNec
       import eu.timepit.refined.collection.NonEmpty
@@ -274,15 +315,7 @@ object ItemEndpoints {
           )
         }
 
-      item.fold(
-        errors ⇒ Sync[F].raiseError(AppError.validationFailed(errors)), {
-          case (name, price, category) ⇒
-            Clock[F]
-              .monotonic(TimeUnit.MILLISECONDS)
-              .map(millis ⇒ DateTime(Instant.ofEpochMilli(millis)))
-              .map(now ⇒ Item(name, price, category, now, now))
-        }
-      )
+      item.fold(errors ⇒ Sync[F].raiseError(AppError.validationFailed(errors)), Sync[F].pure)
     }
   }
 
@@ -298,5 +331,4 @@ object ItemEndpoints {
 
   }
 
-  final case class StockRequest(delta: Int) extends AnyVal
 }
