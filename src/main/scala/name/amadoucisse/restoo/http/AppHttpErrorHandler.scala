@@ -34,8 +34,8 @@ final class AppHttpErrorHandler[F[_]](implicit M: MonadError[F, AppError])
     case s @ ItemOutOfStock ⇒
       Conflict(ApiResponse("ItemOutOfStock", ApiResponseCodes.CONFLICT, s.message))
 
-    case s @ InvalidJsonPatch ⇒
-      Conflict(ApiResponse("InvalidJsonPatch", ApiResponseCodes.VALIDATION_FAILED, s.message))
+    case InvalidJsonPatch(message) ⇒
+      Conflict(ApiResponse("InvalidJsonPatch", ApiResponseCodes.VALIDATION_FAILED, message))
   }
 
   override def handle(service: HttpRoutes[F]): HttpRoutes[F] =

@@ -8,9 +8,8 @@ import cats.implicits._
 import cats.Apply
 import io.circe.generic.auto._
 import io.circe.syntax._
-import org.http4s.circe.jsonOf
 import org.http4s.dsl.Http4sDsl
-import org.http4s.{ EntityDecoder, HttpRoutes, QueryParamDecoder }
+import org.http4s.{ HttpRoutes, QueryParamDecoder }
 import domain._
 import domain.items._
 import domain.entries._
@@ -28,8 +27,6 @@ import cats.mtl.ApplicativeAsk
 
 final class ItemEndpoints[F[_]: Sync: Clock] extends Http4sDsl[F] with Codecs {
   import ItemEndpoints._
-
-  implicit val jsonPatchDecoder: EntityDecoder[F, Vector[JsonPatch]] = jsonOf
 
   private def createEndpoint(itemService: ItemService[F]): HttpRoutes[F] =
     HttpRoutes.of[F] {
@@ -84,8 +81,9 @@ final class ItemEndpoints[F[_]: Sync: Clock] extends Http4sDsl[F] with Codecs {
 
           patches ← req
             .as[Vector[JsonPatch]]
-            .ensureOr(_ ⇒ AppError.invalidJsonPatch) { patches ⇒
-              patches.nonEmpty && isValidJsonPatchForItem(patches)
+            .ensureOr(patches ⇒ AppError.invalidJsonPatch(s"Could not create request from json patch : $patches")) {
+              patches ⇒
+                patches.nonEmpty && isValidJsonPatchForItem(patches)
             }
 
           item ← itemService.getItem(id)
@@ -101,10 +99,10 @@ final class ItemEndpoints[F[_]: Sync: Clock] extends Http4sDsl[F] with Codecs {
 
             maybeItemRequest.fold(
               r ⇒
-                Sync[F].delay(
-                  scribe.error(s"Error : ${r.message}. Could not create request from json patch : $patches")
-                ) *> Sync[F]
-                  .raiseError(AppError.invalidJsonPatch),
+                Sync[F].raiseError(
+                  AppError
+                    .invalidJsonPatch(s"Error : ${r.message}. Could not create request from json patch : $patches")
+              ),
               Sync[F].pure
             )
           }
@@ -166,7 +164,7 @@ final class ItemEndpoints[F[_]: Sync: Clock] extends Http4sDsl[F] with Codecs {
                 .map(_.asJson.noSpaces)
                 .intersperse(",") ++ fs2.Stream("]")
           )
-        } else Sync[F].delay(scribe.error(s"Invalid order by param : $orderBy")) *> BadRequest()
+        } else BadRequest(s"Invalid value for `sort_by` parameter: $orderBy")
 
     }
   }

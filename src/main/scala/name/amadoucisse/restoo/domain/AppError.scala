@@ -8,7 +8,7 @@ import utils.Validation
 sealed abstract class AppError(val message: String) extends Exception(message)
 
 object AppError {
-  final case object InvalidJsonPatch extends AppError("Invalid json patch")
+  final case class InvalidJsonPatch(override val message: String) extends AppError(message)
   final case class ItemAlreadyExists(item: Item) extends AppError("Item already exists")
   case object ItemNotFound extends AppError("Item not found")
 
@@ -16,7 +16,7 @@ object AppError {
 
   final case class ValidationFailed(errors: NonEmptyChain[Validation.FieldError]) extends AppError("Validation failed")
 
-  def invalidJsonPatch: AppError = InvalidJsonPatch
+  def invalidJsonPatch(message: ⇒ String): AppError = InvalidJsonPatch(message)
   def itemAlreadyExists(item: Item): AppError = ItemAlreadyExists(item)
   def itemNotFound: AppError = ItemNotFound
   def itemOutOfStock: AppError = ItemOutOfStock

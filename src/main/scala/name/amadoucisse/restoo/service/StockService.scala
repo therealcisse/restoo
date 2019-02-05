@@ -19,9 +19,9 @@ final class StockService[F[_]: Sync: Clock: λ[G[_] ⇒ NonEmptyParallel[G, G]]]
   def createEntry(itemId: ItemId, delta: Delta): F[Stock] = {
     val getAction = getStock(itemId)
 
-    val getTime = Clock[F].monotonic(TimeUnit.MILLISECONDS)
+    val getTimeAction = Clock[F].monotonic(TimeUnit.MILLISECONDS)
 
-    val addAction = getTime >>= { now ⇒
+    val addAction = getTimeAction >>= { now ⇒
       entryRepo.create(Entry(itemId, delta, DateTime(Instant.ofEpochMilli(now))))
     }
 
