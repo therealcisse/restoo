@@ -2,8 +2,6 @@ package name.amadoucisse.restoo
 package infra
 package repository.inmemory
 
-import scala.util.Random
-
 import cats.effect.Sync
 import cats.implicits._
 import domain.items._
@@ -16,36 +14,31 @@ import cats.effect.Sync
 final class ItemRepositoryInMemoryInterpreter[F[_]: Sync](ref: Ref[F, Map[ItemId, Item]])
     extends ItemRepositoryAlgebra[F] {
 
-  def create(item: Item): F[Item] = {
+  def create(item: Item): F[Unit] = {
 
-    val step: Map[ItemId, Item] ⇒ (Map[ItemId, Item], F[Item]) = { map ⇒
+    val step: Map[ItemId, Item] ⇒ (Map[ItemId, Item], F[Unit]) = { map ⇒
       if (map.values.exists(u ⇒ u.name == item.name)) {
         (map, Sync[F].raiseError(AppError.itemAlreadyExists(item)))
       } else {
-        val id = ItemId(Random.nextInt.abs)
-        val value = item.copy(id = id.some)
-        (map.updated(id, value), Sync[F].pure(value))
+        (map.updated(item.id, item), Sync[F].pure(()))
       }
     }
 
     ref.modify(step).flatten
   }
 
-  def update(item: Item): F[Item] =
-    item.id match {
-      case Some(id) ⇒
-        val step: Map[ItemId, Item] ⇒ (Map[ItemId, Item], F[Item]) = { map ⇒
-          if (map.exists { case (key, value) ⇒ id != key && value.name == item.name })
-            (map, Sync[F].raiseError(AppError.itemAlreadyExists(item)))
-          else {
-            (map.updated(id, item), Sync[F].pure(item))
-          }
+  def update(item: Item): F[Unit] = {
+    val step: Map[ItemId, Item] ⇒ (Map[ItemId, Item], F[Unit]) = { map ⇒
+      if (map.exists { case (key, value) ⇒ item.id != key && value.name == item.name })
+        (map, Sync[F].raiseError(AppError.itemAlreadyExists(item)))
+      else {
+        (map.updated(item.id, item), Sync[F].pure(()))
+      }
 
-        }
-        ref.modify(step).flatten
-
-      case None ⇒ Sync[F].raiseError(AppError.itemNotFound)
     }
+    ref.modify(step).flatten
+
+  }
 
   def get(id: ItemId): F[Item] = ref.get.flatMap { map ⇒
     map.get(id) match {

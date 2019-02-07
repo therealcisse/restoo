@@ -6,7 +6,7 @@ import cats.effect.{ ContextShift, IO }
 import eu.timepit.refined.types.numeric.NonNegInt
 import domain.items._
 import domain.entries._
-import infra.endpoint.ItemEndpoints.{ ItemRequest, StockRequest }
+import infra.endpoint.ItemEndpoints.ItemRequest
 import io.circe.generic.auto._
 import io.circe.literal._
 import org.http4s.circe._
@@ -96,63 +96,61 @@ class AppServerSpec extends FunSpec with Matchers with ScalaFutures with Integra
 
           updatedItemRequest = itemRequest.copy(name = "heyo")
           updatedItem ← httpClient.expect[Item](
-            Request[IO](Method.PUT, uri(s"items/${item.id.value.value}"))
+            Request[IO](Method.PUT, uri(s"items/${item.id.value}"))
               .withEntity(updatedItemRequest.asJson)
           )
-          retrieved ← httpClient.expect[Option[Item]](uri(s"items/${item.id.value.value}"))
+          retrieved ← httpClient.expect[Option[Item]](uri(s"items/${item.id.value}"))
           _ = retrieved.value shouldBe updatedItem
 
           // change price
           newPrice = NonNegInt.unsafeFrom(399)
           patchPrice = json"""{"op":"replace","path":"/priceInCents","value":${newPrice.value}}"""
           patchedItem ← httpClient.expect[Item](
-            Request[IO](Method.PATCH, uri(s"items/${item.id.value.value}"))
+            Request[IO](Method.PATCH, uri(s"items/${item.id.value}"))
               .withEntity(patchPrice)
           )
           _ = patchedItem.price.amountInCents shouldEqual newPrice
-          retrieved ← httpClient.expect[Option[Item]](uri(s"items/${item.id.value.value}"))
+          retrieved ← httpClient.expect[Option[Item]](uri(s"items/${item.id.value}"))
           _ = retrieved.value shouldBe patchedItem
 
           // change name
           newName = "Cake"
           patchName = json"""{"op":"replace","path":"/name","value":$newName}"""
           patchedItem ← httpClient.expect[Item](
-            Request[IO](Method.PATCH, uri(s"items/${item.id.value.value}"))
+            Request[IO](Method.PATCH, uri(s"items/${item.id.value}"))
               .withEntity(patchName)
           )
           _ = patchedItem.name shouldEqual Name(newName)
-          retrieved ← httpClient.expect[Option[Item]](uri(s"items/${item.id.value.value}"))
+          retrieved ← httpClient.expect[Option[Item]](uri(s"items/${item.id.value}"))
           _ = retrieved.value shouldBe patchedItem
 
           // change category
           newCategory = "Dessert"
           patchCategory = json"""{"op":"replace","path":"/category","value":$newCategory}"""
           patchedItem ← httpClient.expect[Item](
-            Request[IO](Method.PATCH, uri(s"items/${item.id.value.value}"))
+            Request[IO](Method.PATCH, uri(s"items/${item.id.value}"))
               .withEntity(patchCategory)
           )
           _ = patchedItem.category shouldEqual Category(newCategory)
-          retrieved ← httpClient.expect[Option[Item]](uri(s"items/${item.id.value.value}"))
+          retrieved ← httpClient.expect[Option[Item]](uri(s"items/${item.id.value}"))
           _ = retrieved.value shouldBe patchedItem
 
-          stockRequest = StockRequest(delta = 10)
+          stockRequest = Delta(value = 10)
           stock ← httpClient.expect[Stock](
-            Request[IO](Method.PUT, uri(s"items/${item.id.value.value}/stocks"))
-              .withEntity(stockRequest.asJson)
+            Request[IO](Method.PUT, uri(s"items/${item.id.value}/stocks").withQueryParam("delta", stockRequest.value))
           )
           _ = stock.item.id shouldBe item.id
           _ = stock.quantity shouldBe 10
 
-          stockRequest = StockRequest(delta = -3)
+          stockRequest = Delta(value = -3)
           stock ← httpClient.expect[Stock](
-            Request[IO](Method.PUT, uri(s"items/${item.id.value.value}/stocks"))
-              .withEntity(stockRequest.asJson)
+            Request[IO](Method.PUT, uri(s"items/${item.id.value}/stocks").withQueryParam("delta", stockRequest.value))
           )
           _ = stock.item.id shouldBe item.id
           _ = stock.quantity shouldBe 7
 
-          _ ← httpClient.expect[Unit](Request[IO](Method.DELETE, uri(s"items/${item.id.value.value}")))
-          retrieveStatus ← httpClient.status(Request[IO](Method.GET, uri(s"items/${item.id.value.value}")))
+          _ ← httpClient.expect[Unit](Request[IO](Method.DELETE, uri(s"items/${item.id.value}")))
+          retrieveStatus ← httpClient.status(Request[IO](Method.GET, uri(s"items/${item.id.value}")))
           _ = retrieveStatus shouldBe Status.NotFound
         } yield ()
       }

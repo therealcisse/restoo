@@ -5,14 +5,14 @@ import domain.items.{ Category, Item, ItemId, ItemRepositoryAlgebra }
 import http.{ Page, SortBy }
 
 final class ItemService[F[_]](itemRepo: ItemRepositoryAlgebra[F]) {
-  def createItem(item: Item): F[Item] = itemRepo.create(item)
+  def createItem(item: Item): F[Unit] = itemRepo.create(item)
 
   def getItem(itemId: ItemId): F[Item] =
     itemRepo.get(itemId)
 
   def deleteItem(itemId: ItemId): F[Unit] = itemRepo.delete(itemId)
 
-  def update(item: Item): F[Item] = itemRepo.update(item)
+  def update(item: Item): F[Unit] = itemRepo.update(item)
 
   def list(category: Option[Category], orderBy: Seq[SortBy], page: Page): fs2.Stream[F, Item] =
     itemRepo.list(category, orderBy, page)

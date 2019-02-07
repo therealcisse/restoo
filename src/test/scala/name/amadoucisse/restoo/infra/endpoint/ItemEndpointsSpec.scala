@@ -5,8 +5,12 @@ package endpoint
 import domain.items._
 import domain.entries._
 import common.IOAssertion
-import service.{ ItemService, StockService }
-import repository.inmemory.{ EntryRepositoryInMemoryInterpreter, ItemRepositoryInMemoryInterpreter }
+import service.{ IdService, ItemService, StockService }
+import repository.inmemory.{
+  EntryRepositoryInMemoryInterpreter,
+  IdRepositoryInMemoryInterpreter,
+  ItemRepositoryInMemoryInterpreter
+}
 import cats.effect.IO
 import io.circe.generic.auto._
 import io.circe.syntax._
@@ -34,18 +38,27 @@ class ItemEndpointsSpec
 
   implicit val H: HttpErrorHandler[IO, AppError] = new AppHttpErrorHandler[IO]
 
+  private def httpEndpoint(): IO[HttpRoutes[IO]] =
+    for {
+      itemRepo ← ItemRepositoryInMemoryInterpreter[IO]
+      itemService = ItemService(itemRepo)
+
+      idRepo ← IdRepositoryInMemoryInterpreter[IO]
+      entryRepo ← EntryRepositoryInMemoryInterpreter[IO]
+      stockService = StockService(entryRepo, itemRepo, idRepo)
+
+      idService = IdService(idRepo)
+
+      itemHttpService ← ItemEndpoints.endpoints[IO](itemService, stockService, idService)
+
+    } yield itemHttpService
+
   test("add item") {
 
     IOAssertion {
 
       for {
-        itemRepo ← ItemRepositoryInMemoryInterpreter[IO]
-        itemService = ItemService(itemRepo)
-
-        entryRepo ← EntryRepositoryInMemoryInterpreter[IO]
-        stockService = StockService(entryRepo, itemRepo)
-
-        itemHttpService ← ItemEndpoints.endpoints[IO](itemService, stockService)
+        itemHttpService ← httpEndpoint()
 
         item = ItemEndpoints.ItemRequest(
           name = "Item 0",
@@ -70,13 +83,7 @@ class ItemEndpointsSpec
     IOAssertion {
 
       for {
-        itemRepo ← ItemRepositoryInMemoryInterpreter[IO]
-        itemService = ItemService(itemRepo)
-
-        entryRepo ← EntryRepositoryInMemoryInterpreter[IO]
-        stockService = StockService(entryRepo, itemRepo)
-
-        itemHttpService ← ItemEndpoints.endpoints[IO](itemService, stockService)
+        itemHttpService ← httpEndpoint()
 
         itemARequest = ItemEndpoints.ItemRequest(
           name = "ItemA",
@@ -106,7 +113,7 @@ class ItemEndpointsSpec
 
         // Try updating itemB's name to equal itemA's name
         itemToUpdate = itemBRequest.copy(name = itemA.name.value)
-        updateRequest = Request[IO](Method.PUT, Uri.unsafeFromString("/" + itemB.id.map(_.value.toString).get))
+        updateRequest = Request[IO](Method.PUT, Uri.unsafeFromString(s"/${itemB.id.value}"))
           .withEntity(itemToUpdate.asJson)
         updateResponse ← itemHttpService
           .run(updateRequest)
@@ -129,13 +136,7 @@ class ItemEndpointsSpec
     IOAssertion {
 
       for {
-        itemRepo ← ItemRepositoryInMemoryInterpreter[IO]
-        itemService = ItemService(itemRepo)
-
-        entryRepo ← EntryRepositoryInMemoryInterpreter[IO]
-        stockService = StockService(entryRepo, itemRepo)
-
-        itemHttpService ← ItemEndpoints.endpoints[IO](itemService, stockService)
+        itemHttpService ← httpEndpoint()
 
         item = ItemEndpoints.ItemRequest(
           name = "Item 0",
@@ -178,13 +179,7 @@ class ItemEndpointsSpec
     IOAssertion {
 
       for {
-        itemRepo ← ItemRepositoryInMemoryInterpreter[IO]
-        itemService = ItemService(itemRepo)
-
-        entryRepo ← EntryRepositoryInMemoryInterpreter[IO]
-        stockService = StockService(entryRepo, itemRepo)
-
-        itemHttpService ← ItemEndpoints.endpoints[IO](itemService, stockService)
+        itemHttpService ← httpEndpoint()
 
         item = ItemEndpoints.ItemRequest(name = "", priceInCents = -9999, currency = "MAD", category = "")
 
@@ -220,10 +215,10 @@ class ItemEndpointsSpec
             .getOrElse(fail(s"Request was not handled: $createRequest"))
           createdItem ← createResponse.as[Item]
 
-          id = createdItem.id.map(_.value.toString).get
+          id = createdItem.id.value
 
           // Invalid update
-          request = Request[IO](Method.PUT, Uri.unsafeFromString("/" + id)).withEntity(item.asJson)
+          request = Request[IO](Method.PUT, Uri.unsafeFromString(s"/$id")).withEntity(item.asJson)
           response ← itemHttpService
             .run(request)
             .getOrElse(fail(s"Request was not handled: $request"))
@@ -245,7 +240,7 @@ class ItemEndpointsSpec
             json"""{"op":"replace","path":"/priceInCents","value":${item.priceInCents}}""",
             json"""{"op":"replace","path":"/category","value":${item.category}}""",
           )
-          request = Request[IO](Method.PATCH, Uri.unsafeFromString("/" + id))
+          request = Request[IO](Method.PATCH, Uri.unsafeFromString(s"/$id"))
             .withEntity(patches.asJson)
           response ← itemHttpService
             .run(request)
@@ -276,13 +271,7 @@ class ItemEndpointsSpec
 
       for {
 
-        itemRepo ← ItemRepositoryInMemoryInterpreter[IO]
-        itemService = ItemService(itemRepo)
-
-        entryRepo ← EntryRepositoryInMemoryInterpreter[IO]
-        stockService = StockService(entryRepo, itemRepo)
-
-        itemHttpService ← ItemEndpoints.endpoints[IO](itemService, stockService)
+        itemHttpService ← httpEndpoint()
 
         item = ItemEndpoints.ItemRequest(
           name = "Cheese Burger",
@@ -295,20 +284,20 @@ class ItemEndpointsSpec
         createResponse ← itemHttpService
           .run(createRequest)
           .getOrElse(fail(s"Request was not handled: $createRequest"))
+        _ = createResponse.status shouldEqual Created
         createdItem ← createResponse.as[Item]
+        _ = createdItem.id shouldEqual createdItem.id
 
         itemToUpdate = item.copy(name = createdItem.name.value.reverse)
-        updateRequest = Request[IO](Method.PUT, Uri.unsafeFromString("/" + createdItem.id.map(_.value.toString).get))
+        updateRequest = Request[IO](Method.PUT, Uri.unsafeFromString(s"/${createdItem.id.value}"))
           .withEntity(itemToUpdate.asJson)
         updateResponse ← itemHttpService
           .run(updateRequest)
           .getOrElse(fail(s"Request was not handled: $updateRequest"))
-        updatedItem ← updateResponse.as[Item]
-
-        _ = createResponse.status shouldEqual Created
         _ = updateResponse.status shouldEqual Ok
+        updatedItem ← updateResponse.as[Item]
         _ = updatedItem.name.value shouldEqual item.name.reverse
-        _ = createdItem.id shouldEqual updatedItem.id
+
       } yield {}
     }
 
@@ -320,13 +309,7 @@ class ItemEndpointsSpec
 
       for {
 
-        itemRepo ← ItemRepositoryInMemoryInterpreter[IO]
-        itemService = ItemService(itemRepo)
-
-        entryRepo ← EntryRepositoryInMemoryInterpreter[IO]
-        stockService = StockService(entryRepo, itemRepo)
-
-        itemHttpService ← ItemEndpoints.endpoints[IO](itemService, stockService)
+        itemHttpService ← httpEndpoint()
 
         item = ItemEndpoints.ItemRequest(
           name = "Cheese Burger",
@@ -341,12 +324,12 @@ class ItemEndpointsSpec
           .getOrElse(fail(s"Request was not handled: $createRequest"))
         createdItem ← createResponse.as[Item]
 
-        id = createdItem.id.map(_.value.toString).get
+        uri = Uri.unsafeFromString(s"/${createdItem.id.value}")
 
         // patch name
         newName = "Cake"
         patchName = json"""{"op":"replace","path":"/name","value":$newName}"""
-        patchRequest = Request[IO](Method.PATCH, Uri.unsafeFromString("/" + id))
+        patchRequest = Request[IO](Method.PATCH, uri)
           .withEntity(patchName)
         patchResponse ← itemHttpService
           .run(patchRequest)
@@ -358,7 +341,7 @@ class ItemEndpointsSpec
         // patch price
         newPrice = NonNegInt.unsafeFrom(5099)
         patchPrice = json"""{"op":"replace","path":"/priceInCents","value":${newPrice.value}}"""
-        patchRequest = Request[IO](Method.PATCH, Uri.unsafeFromString("/" + id))
+        patchRequest = Request[IO](Method.PATCH, uri)
           .withEntity(patchPrice)
         patchResponse ← itemHttpService
           .run(patchRequest)
@@ -370,7 +353,7 @@ class ItemEndpointsSpec
         // patch category
         newCategory = "Dessert"
         patchCategory = json"""{"op":"replace","path":"/category","value":$newCategory}"""
-        patchRequest = Request[IO](Method.PATCH, Uri.unsafeFromString("/" + id))
+        patchRequest = Request[IO](Method.PATCH, uri)
           .withEntity(patchCategory)
         patchResponse ← itemHttpService
           .run(patchRequest)
@@ -385,7 +368,7 @@ class ItemEndpointsSpec
           json"""{"op":"replace","path":"/priceInCents","value":${item.priceInCents}}""",
           json"""{"op":"replace","path":"/category","value":${item.category}}""",
         )
-        patchRequest = Request[IO](Method.PATCH, Uri.unsafeFromString("/" + id))
+        patchRequest = Request[IO](Method.PATCH, uri)
           .withEntity(patches.asJson)
         patchResponse ← itemHttpService
           .run(patchRequest)
@@ -405,13 +388,7 @@ class ItemEndpointsSpec
     IOAssertion {
       for {
 
-        itemRepo ← ItemRepositoryInMemoryInterpreter[IO]
-        itemService = ItemService[IO](itemRepo)
-
-        entryRepo ← EntryRepositoryInMemoryInterpreter[IO]
-        stockService = StockService(entryRepo, itemRepo)
-
-        itemHttpService ← ItemEndpoints.endpoints[IO](itemService, stockService)
+        itemHttpService ← httpEndpoint()
 
         item = ItemEndpoints.ItemRequest(
           name = "Item 0",
@@ -427,18 +404,19 @@ class ItemEndpointsSpec
         createResponse ← itemHttpService
           .run(createRequest)
           .getOrElse(fail(s"Request was not handled: $createRequest"))
+        _ = createResponse.status shouldEqual Created
         createdItem ← createResponse.as[Item]
 
+        uri = Uri.unsafeFromString(s"/${createdItem.id.value}")
+
         deleteResponse ← itemHttpService
-          .run(Request[IO](Method.DELETE, Uri.unsafeFromString("/" + createdItem.id.map(_.value.toString).get)))
+          .run(Request[IO](Method.DELETE, uri))
           .getOrElse(fail(s"Delete request was not handled"))
+        _ = deleteResponse.status shouldEqual NoContent
 
         getResponse ← itemHttpService
-          .run(Request[IO](Method.GET, Uri.unsafeFromString("/" + createdItem.id.map(_.value.toString).get)))
+          .run(Request[IO](Method.GET, uri))
           .getOrElse(fail(s"Get request was not handled"))
-
-        _ = createResponse.status shouldEqual Created
-        _ = deleteResponse.status shouldEqual NoContent
         _ = getResponse.status shouldEqual NotFound
       } yield {}
 
@@ -450,13 +428,7 @@ class ItemEndpointsSpec
     IOAssertion {
 
       for {
-        itemRepo ← ItemRepositoryInMemoryInterpreter[IO]
-        itemService = ItemService(itemRepo)
-
-        entryRepo ← EntryRepositoryInMemoryInterpreter[IO]
-        stockService = StockService(entryRepo, itemRepo)
-
-        itemHttpService ← ItemEndpoints.endpoints[IO](itemService, stockService)
+        itemHttpService ← httpEndpoint()
 
         item = ItemEndpoints.ItemRequest(
           name = "Cheese Burger",
@@ -465,53 +437,57 @@ class ItemEndpointsSpec
           category = "Food & Drinks"
         )
 
-        entry = ItemEndpoints.StockRequest(delta = 1)
+        entry = Delta(value = 1)
 
         createRequest ← IO.pure(Request[IO](Method.POST, Uri.uri("/")).withEntity(item.asJson))
         createResponse ← itemHttpService
           .run(createRequest)
           .getOrElse(fail(s"Request was not handled: $createRequest"))
         createdItem ← createResponse.as[Item]
+        _ = createResponse.status shouldEqual Created
 
-        path = "/" + createdItem.id.map(_.value.toString).get + "/stocks"
+        uri = Uri.unsafeFromString(s"/${createdItem.id.value}/stocks")
 
-        getStockRequest = Request[IO](Method.GET, Uri.unsafeFromString(path))
+        getStockRequest = Request[IO](Method.GET, uri)
 
+        // get current stock quantity ==> 0
         getStock0Response ← itemHttpService
           .run(getStockRequest)
           .getOrElse(fail(s"Request was not handled: $getStockRequest"))
+        _ = getStock0Response.status shouldEqual Ok
         stock0 ← getStock0Response.as[Stock]
+        _ = stock0.quantity shouldEqual 0
 
-        addStockRequest = Request[IO](Method.PUT, Uri.unsafeFromString(path))
-          .withEntity(entry.asJson)
+        // add `entry.delta` items
+        addStockRequest = Request[IO](Method.PUT, uri.withQueryParam("delta", entry.value))
         _ ← itemHttpService
           .run(addStockRequest)
           .getOrElse(fail(s"Request was not handled: $addStockRequest"))
 
+        // get current stock quantity ==> `entry.delta`
         getStock1Response ← itemHttpService
           .run(getStockRequest)
           .getOrElse(fail(s"Request was not handled: $getStockRequest"))
+        _ = getStock1Response.status shouldEqual Ok
         stock1 ← getStock1Response.as[Stock]
+        _ = stock1.quantity shouldEqual entry.value
 
-        removeStockRequest = Request[IO](Method.PUT, Uri.unsafeFromString(path))
-          .withEntity(entry.copy(delta = -1 * entry.delta).asJson)
+        // substract `entry.delta` items
+        removeStockRequest = Request[IO](Method.PUT, uri.withQueryParam("delta", -1 * entry.value))
         _ ← itemHttpService
           .run(removeStockRequest)
           .getOrElse(fail(s"Request was not handled: $removeStockRequest"))
 
+        // get current stock ==> 0
         getStock2Response ← itemHttpService
           .run(getStockRequest)
           .getOrElse(fail(s"Request was not handled: $getStockRequest"))
+        _ = getStock2Response.status shouldEqual Ok
         stock2 ← getStock2Response.as[Stock]
-
-        _ = createResponse.status shouldEqual Created
-        _ = stock0.quantity shouldEqual 0
-        _ = stock1.quantity shouldEqual entry.delta
         _ = stock2.quantity shouldEqual 0
 
       } yield {}
     }
-
   }
 
   test("no negative stock") {
@@ -519,13 +495,7 @@ class ItemEndpointsSpec
     IOAssertion {
 
       for {
-        itemRepo ← ItemRepositoryInMemoryInterpreter[IO]
-        itemService = ItemService(itemRepo)
-
-        entryRepo ← EntryRepositoryInMemoryInterpreter[IO]
-        stockService = StockService(entryRepo, itemRepo)
-
-        itemHttpService ← ItemEndpoints.endpoints[IO](itemService, stockService)
+        itemHttpService ← httpEndpoint()
 
         item = ItemEndpoints.ItemRequest(
           name = "Cheese Burger",
@@ -534,34 +504,35 @@ class ItemEndpointsSpec
           category = "Food & Drinks"
         )
 
-        entry = ItemEndpoints.StockRequest(delta = -1)
+        entry = Delta(value = -1)
 
         createRequest ← IO.pure(Request[IO](Method.POST, Uri.uri("/")).withEntity(item.asJson))
         createResponse ← itemHttpService
           .run(createRequest)
           .getOrElse(fail(s"Request was not handled: $createRequest"))
+        _ = createResponse.status shouldEqual Created
         createdItem ← createResponse.as[Item]
 
-        path = "/" + createdItem.id.map(_.value.toString).get + "/stocks"
+        uri = Uri.unsafeFromString(s"/${createdItem.id.value}/stocks")
 
-        getStockRequest = Request[IO](Method.GET, Uri.unsafeFromString(path))
+        getStockRequest = Request[IO](Method.GET, uri)
 
         getStockResponse ← itemHttpService
           .run(getStockRequest)
           .getOrElse(fail(s"Request was not handled: $getStockRequest"))
+        _ = getStockResponse.status shouldEqual Ok
         stock ← getStockResponse.as[Stock]
+        _ = stock.quantity shouldEqual 0
 
-        negStockRequest = Request[IO](Method.PUT, Uri.unsafeFromString(path))
-          .withEntity(entry.asJson)
+        negStockRequest = Request[IO](Method.PUT, uri.withQueryParam("delta", entry.value))
         negStockResponse ← itemHttpService
           .run(negStockRequest)
           .getOrElse(fail(s"Request was not handled: $negStockRequest"))
-
-        _ = createResponse.status shouldEqual Created
-        _ = stock.quantity shouldEqual 0
         _ = negStockResponse.status shouldEqual Conflict
+
       } yield {}
     }
 
   }
+
 }

@@ -2,14 +2,13 @@ package name.amadoucisse.restoo
 package domain
 package items
 
-@SuppressWarnings(Array("org.wartremover.warts.DefaultArguments"))
 final case class Item(
     name: Name,
     price: Money,
     category: Category,
     createdAt: DateTime,
     updatedAt: DateTime,
-    id: Option[ItemId] = None,
+    id: ItemId,
 )
 
 object Item {

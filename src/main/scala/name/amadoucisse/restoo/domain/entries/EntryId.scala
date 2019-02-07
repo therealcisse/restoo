@@ -5,7 +5,7 @@ package entries
 import io.circe._
 import io.circe.generic.extras.semiauto._
 
-final case class EntryId(value: Int) extends AnyVal
+final case class EntryId(value: Long) extends AnyVal
 
 object EntryId {
   implicit val jsonEncoder: Encoder[EntryId] = deriveUnwrappedEncoder

@@ -5,9 +5,9 @@ package items
 import http.{ Page, SortBy }
 
 trait ItemRepositoryAlgebra[F[_]] {
-  def create(item: Item): F[Item]
+  def create(item: Item): F[Unit]
 
-  def update(item: Item): F[Item]
+  def update(item: Item): F[Unit]
 
   def get(id: ItemId): F[Item]
 

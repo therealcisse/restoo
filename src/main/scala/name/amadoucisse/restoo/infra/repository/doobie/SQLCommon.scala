@@ -21,10 +21,10 @@ private trait SQLCommon {
     Meta[String].timap[Name](Name(_))(_.value)
 
   implicit val ItemIdMeta: Meta[ItemId] =
-    Meta[Int].timap[ItemId](ItemId(_))(_.value)
+    Meta[Long].timap[ItemId](ItemId(_))(_.value)
 
   implicit val EntryIdMeta: Meta[EntryId] =
-    Meta[Int].timap[EntryId](EntryId(_))(_.value)
+    Meta[Long].timap[EntryId](EntryId(_))(_.value)
 
   implicit val DeltaMeta: Meta[Delta] =
     Meta[Int].timap[Delta](Delta(_))(_.value)

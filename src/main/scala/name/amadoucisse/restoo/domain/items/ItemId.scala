@@ -7,7 +7,7 @@ import io.circe.generic.extras.semiauto._
 
 import scala.util.Try
 
-final case class ItemId(value: Int) extends AnyVal
+final case class ItemId(value: Long) extends AnyVal
 
 object ItemId {
   implicit val jsonEncoder: Encoder[ItemId] = deriveUnwrappedEncoder
@@ -15,5 +15,5 @@ object ItemId {
 
   def unapply(param: String): Option[ItemId] =
     if (param.isEmpty) None
-    else Try(ItemId(param.toInt)).toOption
+    else Try(ItemId(param.toLong)).toOption
 }
