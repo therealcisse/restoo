@@ -26,7 +26,7 @@ import eu.timepit.refined.types.numeric.NonNegInt
 import domain.AppError
 import com.olegpy.meow.hierarchy._
 
-@SuppressWarnings(Array("org.wartremover.warts.Throw", "org.wartremover.warts.OptionPartial"))
+@SuppressWarnings(Array("org.wartremover.warts.Throw"))
 class ItemEndpointsSpec
     extends FunSuite
     with Matchers
