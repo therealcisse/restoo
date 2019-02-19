@@ -1,7 +1,7 @@
 package name.amadoucisse.restoo
 package service
 
-import cats.NonEmptyParallel
+import cats.temp.par._
 import cats.implicits._
 import cats.effect.{ Clock, Sync }
 import domain.{ AppError, DateTime }
@@ -12,7 +12,7 @@ import domain.entries.{ Delta, Entry, EntryRepositoryAlgebra, Stock }
 import java.util.concurrent.TimeUnit
 import java.time.Instant
 
-final class StockService[F[_]: Sync: Clock: λ[G[_] ⇒ NonEmptyParallel[G, G]]](
+final class StockService[F[_]: Sync: Clock: Par](
     entryRepo: EntryRepositoryAlgebra[F],
     itemRepo: ItemRepositoryAlgebra[F],
     idRepo: IdRepositoryAlgebra[F],
@@ -48,7 +48,7 @@ final class StockService[F[_]: Sync: Clock: λ[G[_] ⇒ NonEmptyParallel[G, G]]]
 }
 
 object StockService {
-  def apply[F[_]: Sync: Clock: λ[G[_] ⇒ NonEmptyParallel[G, G]]](
+  def apply[F[_]: Sync: Clock: Par](
       entryRepo: EntryRepositoryAlgebra[F],
       itemRepo: ItemRepositoryAlgebra[F],
       idRepo: IdRepositoryAlgebra[F],

@@ -1,8 +1,9 @@
 package name.amadoucisse.restoo
 
 import cats.effect.{ ConcurrentEffect, ContextShift, ExitCode, IO, IOApp, Resource, Timer }
+import cats.temp.par._
 import cats.implicits._
-import cats.{ NonEmptyParallel, Parallel }
+import cats.Parallel
 import io.prometheus.client.CollectorRegistry
 import config.{ AppConf, DatabaseConf }
 import domain.AppError
@@ -38,7 +39,7 @@ object Main extends IOApp {
     resource[IO].use(_ ⇒ IO.never)
 
   private def resource[
-      F[_]: Timer: ContextShift: λ[G[_] ⇒ NonEmptyParallel[G, G]]: ConcurrentEffect: ApplicativeAsk[?[_], AppConf]
+      F[_]: Timer: ContextShift: Par: ConcurrentEffect: ApplicativeAsk[?[_], AppConf]
   ]: Resource[F, Server[F]] = {
     implicit val H: HttpErrorHandler[F, AppError] = new AppHttpErrorHandler[F]
 

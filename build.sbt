@@ -13,6 +13,7 @@ promptTheme := PromptTheme(List(
  ))
 
 val CatsVersion         = "1.6.0"
+val CatsParVersion      = "0.2.1"
 val CirceVersion        = "0.11.1"
 val CirceJava8Version   = "0.10.1"
 val CirceOpticsVersion  = "0.10.0"
@@ -78,6 +79,8 @@ libraryDependencies ++= Seq(
   "eu.timepit"              %% "refined"                              % RefinedVersion,
   "eu.timepit"              %% "refined-scalacheck"                   % RefinedVersion,
   "eu.timepit"              %% "refined-pureconfig"                   % RefinedVersion,
+
+  "io.chrisdavenport"       %% "cats-par"                             % CatsParVersion,
 )
 
 addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.9")
