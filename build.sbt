@@ -30,7 +30,7 @@ val LogbackVersion    = "1.2.3"
 
 val SwaggerUIVersion  = "3.20.9"
 
-val DTraceVersion   = "2.0.0-SNAPSHOT"
+val DTraceVersion   = "2.0.0-RC2"
 
 val RefinedVersion = "0.9.4"
 
