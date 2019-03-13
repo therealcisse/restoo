@@ -58,14 +58,14 @@ final class ItemRepositoryInMemoryInterpreter[F[_]: Sync](ref: Ref[F, Map[ItemId
     map - itemId
   }
 
-  def list(category: Option[Category], orderBy: Seq[SortBy], page: Page): fs2.Stream[F, Item] =
-    fs2.Stream.eval(ref.get).flatMap { map ⇒
+  def list(category: Option[Category], orderBy: Seq[SortBy], page: Page): F[List[Item]] =
+    ref.get.map { map ⇒
       val filtered = category match {
         case Some(value) ⇒ map.values.filter(_.category == value)
         case None        ⇒ map.values
       }
 
-      def paginated: (Vector[Item], Page) ⇒ Vector[Item] = {
+      def paginated: (List[Item], Page) ⇒ List[Item] = {
         case (list, Page(marker, limit)) ⇒
           val ls = marker match {
             case Some(m) ⇒ list.dropWhile(_.createdAt.value.compareTo(m) <= 0)
@@ -78,8 +78,7 @@ final class ItemRepositoryInMemoryInterpreter[F[_]: Sync](ref: Ref[F, Map[ItemId
           }
       }
 
-      fs2.Stream.emits(paginated(filtered.toVector, page))
-
+      paginated(filtered.toList, page)
     }
 
 }

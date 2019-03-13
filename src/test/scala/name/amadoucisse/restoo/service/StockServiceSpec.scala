@@ -10,11 +10,11 @@ import http.{ Page, SortBy }
 import common.IOAssertion
 import org.scalatest.{ MustMatchers, WordSpec }
 import name.amadoucisse.restoo.domain.AppError
-import org.scalatest.prop.GeneratorDrivenPropertyChecks
+import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 
 import java.time.Instant
 
-class StockServiceSpec extends WordSpec with MustMatchers with GeneratorDrivenPropertyChecks {
+class StockServiceSpec extends WordSpec with MustMatchers with ScalaCheckDrivenPropertyChecks {
   val existingItemId = ItemId(1L)
   val existingItemCount = 10L
 
@@ -61,7 +61,7 @@ class StockServiceSpec extends WordSpec with MustMatchers with GeneratorDrivenPr
 
     def delete(itemId: ItemId): IO[Unit] = ???
 
-    def list(category: Option[Category], orderBy: Seq[SortBy], page: Page): fs2.Stream[IO, Item] = ???
+    def list(category: Option[Category], orderBy: Seq[SortBy], page: Page): IO[List[Item]] = ???
     def create(item: Item): IO[Unit] = ???
     def update(item: Item): IO[Unit] = ???
 

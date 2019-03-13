@@ -18,9 +18,9 @@ val CirceVersion        = "0.11.1"
 val CirceJava8Version   = "0.10.1"
 val CirceOpticsVersion  = "0.10.0"
 val MeowMTLVersion      = "0.2.0"
-val Http4sVersion       = "0.20.0-M5"
+val Http4sVersion       = "0.20.0-M6"
 val ScalaCheckVersion   = "1.14.0"
-val ScalaTestVersion    = "3.0.5"
+val ScalaTestVersion    = "3.0.6"
 val DoobieVersion       = "0.6.0"
 val H2Version           = "1.4.196"
 val FlywayVersion       = "5.2.4"
@@ -28,11 +28,9 @@ val PureConfigVersion   = "0.10.1"
 
 val LogbackVersion    = "1.2.3"
 
-val SwaggerUIVersion  = "3.20.5"
+val SwaggerUIVersion  = "3.20.9"
 
-//val OpencensusHttp4sVersion   = "0.6.0"
-//val OpencensusLoggingVersion = "0.15.1"
-//val OpencensusZipkinVersion  = "0.15.1"
+val DTraceVersion   = "2.0.0-SNAPSHOT"
 
 val RefinedVersion = "0.9.4"
 
@@ -72,9 +70,10 @@ libraryDependencies ++= Seq(
 
   "org.webjars"             % "swagger-ui"              % SwaggerUIVersion,
 
-//  "com.github.sebruck"      %% "opencensus-scala-http4s"              % OpencensusHttp4sVersion,
-//  "io.opencensus"           % "opencensus-exporter-trace-logging"     % OpencensusLoggingVersion,
-//  "io.opencensus"           % "opencensus-exporter-trace-zipkin"      % OpencensusZipkinVersion,
+  "com.ccadllc.cedi" %% "dtrace-core" % DTraceVersion,
+  "com.ccadllc.cedi" %% "dtrace-logging" % DTraceVersion,
+  "com.ccadllc.cedi" %% "dtrace-xb3" % DTraceVersion,
+  "com.ccadllc.cedi" %% "dtrace-http4s" % DTraceVersion,
 
   "eu.timepit"              %% "refined"                              % RefinedVersion,
   "eu.timepit"              %% "refined-scalacheck"                   % RefinedVersion,

@@ -23,15 +23,20 @@ import eu.timepit.refined.auto._
 import java.util.concurrent.TimeUnit
 import java.time.Instant
 
+import com.ccadllc.cedi.dtrace._
+import com.ccadllc.cedi.dtrace.interop.http4s.server._
+
 import cats.mtl.ApplicativeAsk
 
-final class ItemEndpoints[F[_]: Sync: Clock] extends Http4sDsl[F] with Codecs {
+final class ItemEndpoints[F[_]: Sync: Clock: TraceSystem](implicit headerCodec: HeaderCodec)
+    extends Http4sDsl[F]
+    with Codecs {
   import ItemEndpoints._
 
   private def createEndpoint(itemService: ItemService[F], idService: IdService[F]): HttpRoutes[F] =
     HttpRoutes.of[F] {
       case req @ POST → Root ⇒
-        for {
+        val action = for {
           itemRequest ← req.as[ItemRequest]
 
           (name, price, category) ← itemRequest.validate
@@ -50,16 +55,20 @@ final class ItemEndpoints[F[_]: Sync: Clock] extends Http4sDsl[F] with Codecs {
           )
 
           _ ← itemService.createItem(item)
+        } yield item
 
-          resp ← Created(item.asJson)
-        } yield resp
+        val traced = action.toTraceT
+
+        tracedAction(req, Span.Name("add-item"))(traced) >>= { item ⇒
+          Created(item.asJson)
+        }
 
     }
 
   private def updateEndpoint(itemService: ItemService[F]): HttpRoutes[F] =
     HttpRoutes.of[F] {
       case req @ PUT → (Root / ItemId(id)) ⇒
-        for {
+        val action = for {
           item ← itemService.getItem(id)
 
           itemRequest ← req.as[ItemRequest]
@@ -76,10 +85,13 @@ final class ItemEndpoints[F[_]: Sync: Clock] extends Http4sDsl[F] with Codecs {
           )
 
           _ ← itemService.update(updated)
+        } yield updated
 
-          resp ← Ok(updated.asJson)
-        } yield resp
+        val traced = action.toTraceT
 
+        tracedAction(req, Span.Name("update-item"))(traced) >>= { item ⇒
+          Ok(item.asJson)
+        }
     }
 
   private def patchEndpoint(itemService: ItemService[F]): HttpRoutes[F] = {
@@ -98,7 +110,7 @@ final class ItemEndpoints[F[_]: Sync: Clock] extends Http4sDsl[F] with Codecs {
 
     HttpRoutes.of[F] {
       case req @ PATCH → (Root / ItemId(id)) ⇒
-        for {
+        val action = for {
 
           patches ← req
             .as[Vector[JsonPatch]]
@@ -139,10 +151,13 @@ final class ItemEndpoints[F[_]: Sync: Clock] extends Http4sDsl[F] with Codecs {
             updatedAt = DateTime(Instant.ofEpochMilli(now))
           )
           _ ← itemService.update(updated)
+        } yield updated
 
-          resp ← Ok(updated.asJson)
-        } yield resp
+        val traced = action.toTraceT
 
+        tracedAction(req, Span.Name("patch-item"))(traced) >>= { item ⇒
+          Ok(item.asJson)
+        }
     }
   }
 
@@ -177,21 +192,24 @@ final class ItemEndpoints[F[_]: Sync: Clock] extends Http4sDsl[F] with Codecs {
       }
 
     HttpRoutes.of[F] {
-      case GET → Root :? OptionalCategoryQueryParamMatcher(maybeCategory) +& OptionalOrderByQueryParamMatcher(
+      case req @ GET → Root :? OptionalCategoryQueryParamMatcher(maybeCategory) +& OptionalOrderByQueryParamMatcher(
             maybeOrderBy
           ) +& OptionalMarkerQueryParamMatcher(marker) +& OptionalLimitQueryParamMatcher(limit) ⇒
         val orderBy = maybeOrderBy.getOrElse(Nil)
 
         if (isValidOrderByForItem(orderBy)) {
-          val items = itemService
+          val action = itemService
             .list(maybeCategory, orderBy, Page(marker, limit))
 
-          Ok(
-            fs2.Stream("[") ++
-              items
-                .map(_.asJson.noSpaces)
-                .intersperse(",") ++ fs2.Stream("]")
-          )
+          val traced = action.toTraceT
+
+          tracedAction(
+            req,
+            Span.Name("list-items"),
+          )(traced) >>= { items ⇒
+            Ok(items.asJson)
+          }
+
         } else BadRequest(s"Invalid value for `sort_by` parameter: $orderBy")
 
     }
@@ -199,20 +217,32 @@ final class ItemEndpoints[F[_]: Sync: Clock] extends Http4sDsl[F] with Codecs {
 
   private def deleteItemEndpoint(itemService: ItemService[F]): HttpRoutes[F] =
     HttpRoutes.of[F] {
-      case DELETE → (Root / ItemId(id)) ⇒
-        for {
-          _ ← itemService.deleteItem(id)
-          resp ← NoContent()
-        } yield resp
+      case req @ DELETE → (Root / ItemId(id)) ⇒
+        val action = itemService.deleteItem(id)
+
+        val traced = action.toTraceT
+
+        tracedAction(
+          req,
+          Span.Name("delete-item"),
+          Note.long("item-id", id.value)
+        )(traced) >> NoContent()
     }
 
   private def getItemEndpoint(itemService: ItemService[F]): HttpRoutes[F] =
     HttpRoutes.of[F] {
-      case GET → (Root / ItemId(id)) ⇒
-        for {
-          item ← itemService.getItem(id)
-          resp ← Ok(item.asJson)
-        } yield resp
+      case req @ GET → (Root / ItemId(id)) ⇒
+        val action = itemService.getItem(id)
+
+        val traced = action.toTraceT
+
+        tracedAction(
+          req,
+          Span.Name("get-item"),
+          Note.long("item-id", id.value)
+        )(traced) >>= { item ⇒
+          Ok(item.asJson)
+        }
     }
 
   private def createStockEntryEndpoint(stockService: StockService[F]): HttpRoutes[F] = {
@@ -222,14 +252,23 @@ final class ItemEndpoints[F[_]: Sync: Clock] extends Http4sDsl[F] with Codecs {
     object DeltaQueryParamMatcher extends ValidatingQueryParamDecoderMatcher[Delta]("delta")
 
     HttpRoutes.of[F] {
-      case PUT → (Root / ItemId(itemId) / "stocks") :? DeltaQueryParamMatcher(deltaValidated) ⇒
+      case req @ PUT → (Root / ItemId(itemId) / "stocks") :? DeltaQueryParamMatcher(deltaValidated) ⇒
         deltaValidated.fold(
-          _ ⇒ BadRequest("unable to parse argument `delta`"),
-          value ⇒
-            for {
-              stock ← stockService.createEntry(itemId, value)
-              resp ← Ok(stock.asJson)
-            } yield resp
+          _ ⇒ BadRequest("unable to parse argument `delta`"), { delta ⇒
+            val action = stockService.createEntry(itemId, delta)
+
+            val traced = action.toTraceT
+
+            tracedAction(
+              req,
+              Span.Name("change-item-stock"),
+              Note.long("item-id", itemId.value),
+              Note.long("stock-amount", delta.value.toLong)
+            )(traced) >>= { stock ⇒
+              Ok(stock.asJson)
+            }
+
+          }
         )
 
     }
@@ -237,11 +276,18 @@ final class ItemEndpoints[F[_]: Sync: Clock] extends Http4sDsl[F] with Codecs {
 
   private def getStockEndpoint(stockService: StockService[F]): HttpRoutes[F] =
     HttpRoutes.of[F] {
-      case GET → (Root / ItemId(itemId) / "stocks") ⇒
-        for {
-          stock ← stockService.getStock(itemId)
-          resp ← Ok(stock.asJson)
-        } yield resp
+      case req @ GET → (Root / ItemId(itemId) / "stocks") ⇒
+        val action = stockService.getStock(itemId)
+
+        val traced = action.toTraceT
+
+        tracedAction(
+          req,
+          Span.Name("get-item"),
+          Note.long("item-id", itemId.value)
+        )(traced) >>= { item ⇒
+          Ok(item.asJson)
+        }
     }
 
   private def getSwaggerSpec(swaggerConf: SwaggerConf): HttpRoutes[F] =
@@ -270,11 +316,12 @@ final class ItemEndpoints[F[_]: Sync: Clock] extends Http4sDsl[F] with Codecs {
 }
 
 object ItemEndpoints {
-  def endpoints[F[_]: Sync: Clock: ApplicativeAsk[?[_], AppConf]](itemService: ItemService[F],
-                                                                  stockService: StockService[F],
-                                                                  idService: IdService[F],
+  def endpoints[F[_]: Sync: Clock: ApplicativeAsk[?[_], AppConf]: TraceSystem](itemService: ItemService[F],
+                                                                               stockService: StockService[F],
+                                                                               idService: IdService[F],
   )(
-      implicit H: HttpErrorHandler[F, AppError]
+      implicit H: HttpErrorHandler[F, AppError],
+      headerCodec: HeaderCodec,
   ): F[HttpRoutes[F]] =
     for {
       swaggerConf ← AppConf.swaggerConf[F]

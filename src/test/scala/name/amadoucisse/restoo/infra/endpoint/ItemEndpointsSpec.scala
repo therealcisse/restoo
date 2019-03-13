@@ -20,21 +20,25 @@ import http.{ ApiResponseCodes, AppHttpErrorHandler, HttpErrorHandler }
 import utils.Validation
 import org.http4s._
 import org.scalatest._
-import org.scalatest.prop.PropertyChecks
+import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 import eu.timepit.refined.auto._
 import eu.timepit.refined.types.numeric.NonNegInt
 import domain.AppError
 import com.olegpy.meow.hierarchy._
 
+import com.ccadllc.cedi.dtrace._
+
 @SuppressWarnings(Array("org.wartremover.warts.Throw"))
 class ItemEndpointsSpec
     extends FunSuite
     with Matchers
-    with PropertyChecks
+    with ScalaCheckPropertyChecks
     with Arbitraries
     with dsl.Http4sDsl[IO]
     with IOExecution
     with Codecs {
+
+  import ItemEndpointsSpec._
 
   implicit val H: HttpErrorHandler[IO, AppError] = new AppHttpErrorHandler[IO]
 
@@ -535,4 +539,30 @@ class ItemEndpointsSpec
 
   }
 
+}
+
+object ItemEndpointsSpec {
+  object NoOpEmitter extends TraceSystem.Emitter[IO] {
+    def emit(tc: TraceContext[IO]): IO[Unit] = IO.unit
+    def description: String = "No-op emitter"
+  }
+
+  implicit val traceSystem: TraceSystem[IO] =
+    TraceSystem(
+      data = TraceSystem.Data(
+        TraceSystem.Data.Identity(
+          Map(
+            "application name" → "restoo",
+          )
+        ),
+        TraceSystem.Data.Meta(
+          Map(
+            )
+        )
+      ),
+      emitter = NoOpEmitter,
+      timer = TraceSystem.realTimeTimer[IO]
+    )
+
+  implicit val headerCodec: HeaderCodec = interop.xb3.headerCodec
 }

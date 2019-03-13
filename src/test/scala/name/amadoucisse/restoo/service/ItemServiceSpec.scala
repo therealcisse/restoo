@@ -157,7 +157,7 @@ class ItemServiceSpec extends WordSpec with MustMatchers with IOExecution {
 
     def delete(itemId: ItemId): IO[Unit] = ???
 
-    def list(category: Option[Category], orderBy: Seq[SortBy], page: Page): fs2.Stream[IO, Item] = ???
+    def list(category: Option[Category], orderBy: Seq[SortBy], page: Page): IO[List[Item]] = ???
   }
 
   trait Context {

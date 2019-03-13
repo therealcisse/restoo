@@ -1,6 +1,6 @@
 package name.amadoucisse.restoo
 
-import cats.effect.{ ConcurrentEffect, ContextShift, ExitCode, IO, IOApp, Resource, Timer }
+import cats.effect.{ ConcurrentEffect, ContextShift, ExitCode, IO, IOApp, Resource, Sync, Timer }
 import cats.temp.par._
 import cats.implicits._
 import cats.Parallel
@@ -22,8 +22,11 @@ import org.http4s.server.blaze.BlazeServerBuilder
 import org.http4s.server.middleware.Metrics
 import org.http4s.metrics.prometheus.{ Prometheus, PrometheusExportService }
 
-//import io.opencensus.scala.http4s.TracingMiddleware
-//import io.opencensus.scala.http.ServiceData
+import com.ccadllc.cedi.dtrace._
+import com.ccadllc.cedi.dtrace.logging.LogEmitter
+
+import TraceSystem._
+
 import http.{ AppHttpErrorHandler, HttpErrorHandler, SwaggerSpec }
 import eu.timepit.refined.auto._
 
@@ -32,8 +35,26 @@ import cats.mtl.ApplicativeAsk
 object Main extends IOApp {
   import com.olegpy.meow.hierarchy.deriveMonadError
 
+  private def traceSystem[F[_]: Sync]: F[TraceSystem[F]] = LogEmitter[F](true).map { emitter ⇒
+    TraceSystem(
+      data = TraceSystem.Data(
+        TraceSystem.Data.Identity(
+          Map(
+            "application name" → "restoo",
+          )
+        ),
+        TraceSystem.Data.Meta(
+          Map(
+            )
+        )
+      ),
+      emitter = emitter,
+      timer = TraceSystem.realTimeTimer[F]
+    )
+  }
+
   @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
-  implicit lazy val par: Parallel[IO, IO] = Parallel[IO, IO.Par].asInstanceOf[Parallel[IO, IO]]
+  private implicit lazy val par: Parallel[IO, IO] = Parallel[IO, IO.Par].asInstanceOf[Parallel[IO, IO]]
 
   final def run(args: List[String]): IO[ExitCode] =
     resource[IO].use(_ ⇒ IO.never)
@@ -43,7 +64,11 @@ object Main extends IOApp {
   ]: Resource[F, Server[F]] = {
     implicit val H: HttpErrorHandler[F, AppError] = new AppHttpErrorHandler[F]
 
+    implicit val headerCodec: HeaderCodec = interop.xb3.headerCodec
+
     for {
+      implicit0(ts: TraceSystem[F]) ← Resource.liftF(traceSystem[F])
+
       xa ← DatabaseConf.dbTransactor[F]
 
       _ ← Resource.liftF(DatabaseConf.migrateDb(xa))
@@ -61,12 +86,9 @@ object Main extends IOApp {
 
       namespace ← Resource.liftF(AppConf.namespace[F])
 
-      service = Metrics[F](Prometheus(registry, prefix = namespace))(
-        // TracingMiddleware.withoutSpan( // TODO: uncomment when opencensus is updated
-        endpoints,
-        //   ServiceData(name = "Restoo", version = "1.0.0")
-        // )
-      )
+      service ← Resource.liftF {
+        Prometheus[F](registry, prefix = namespace).map(Metrics[F](_)(endpoints))
+      }
 
       metricsExportService = PrometheusExportService.service(registry)
       _ = PrometheusExportService.addDefaults(registry)
