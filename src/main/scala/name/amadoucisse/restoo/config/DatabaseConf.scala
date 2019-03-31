@@ -1,7 +1,6 @@
 package name.amadoucisse.restoo
 package config
 
-import cats.syntax.functor._
 import cats.effect.{ Async, ContextShift, Resource, Sync }
 import doobie.hikari._
 import doobie.util.ExecutionContexts

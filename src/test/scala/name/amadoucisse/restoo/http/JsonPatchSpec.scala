@@ -2,12 +2,12 @@ package name.amadoucisse.restoo
 package http
 
 import org.scalatest._
-import org.scalatest.prop.PropertyChecks
+import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 
 import io.circe.Json
 import io.circe.literal._
 
-class JsonPatchSpec extends FunSuite with PropertyChecks with Matchers {
+class JsonPatchSpec extends FunSuite with ScalaCheckPropertyChecks with Matchers {
 
   val fixtures = Table(
     ("op", "input", "expectedOutput"),
@@ -31,10 +31,10 @@ class JsonPatchSpec extends FunSuite with PropertyChecks with Matchers {
     )
   }
 
-  test("applyOperation") {
+  test("applyPatch") {
 
     forAll(fixtures) { (op, input, expectedOutput) ⇒
-      op.applyOperation(input) shouldEqual expectedOutput
+      op.applyPatch(input) shouldEqual expectedOutput
     }
   }
 

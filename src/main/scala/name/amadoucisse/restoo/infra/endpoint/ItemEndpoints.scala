@@ -113,7 +113,7 @@ final class ItemEndpoints[F[_]: Sync: Clock] extends Http4sDsl[F] with Codecs {
             val unitR = ItemRequest.fromItem(item)
 
             val result = patches.foldLeft(unitR.asJson) { (input, patch) ⇒
-              patch.applyOperation(input)
+              patch.applyPatch(input)
             }
 
             val maybeItemRequest = result.as[ItemRequest]

@@ -18,9 +18,9 @@ val CirceVersion        = "0.11.1"
 val CirceJava8Version   = "0.10.1"
 val CirceOpticsVersion  = "0.10.0"
 val MeowMTLVersion      = "0.2.0"
-val Http4sVersion       = "0.20.0-M5"
+val Http4sVersion       = "0.20.0-M7"
 val ScalaCheckVersion   = "1.14.0"
-val ScalaTestVersion    = "3.0.5"
+val ScalaTestVersion    = "3.0.7"
 val DoobieVersion       = "0.6.0"
 val H2Version           = "1.4.196"
 val FlywayVersion       = "5.2.4"
@@ -28,11 +28,7 @@ val PureConfigVersion   = "0.10.1"
 
 val LogbackVersion    = "1.2.3"
 
-val SwaggerUIVersion  = "3.20.5"
-
-//val OpencensusHttp4sVersion   = "0.6.0"
-//val OpencensusLoggingVersion = "0.15.1"
-//val OpencensusZipkinVersion  = "0.15.1"
+val SwaggerUIVersion  = "3.20.9"
 
 val RefinedVersion = "0.9.4"
 

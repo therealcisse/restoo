@@ -20,7 +20,7 @@ import http.{ ApiResponseCodes, AppHttpErrorHandler, HttpErrorHandler }
 import utils.Validation
 import org.http4s._
 import org.scalatest._
-import org.scalatest.prop.PropertyChecks
+import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 import eu.timepit.refined.auto._
 import eu.timepit.refined.types.numeric.NonNegInt
 import domain.AppError
@@ -30,7 +30,7 @@ import com.olegpy.meow.hierarchy._
 class ItemEndpointsSpec
     extends FunSuite
     with Matchers
-    with PropertyChecks
+    with ScalaCheckPropertyChecks
     with Arbitraries
     with dsl.Http4sDsl[IO]
     with IOExecution

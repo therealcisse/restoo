@@ -117,10 +117,10 @@ object SwaggerSpec {
       obj(
         "in" → fromString("body"),
         "name" → fromString("body"),
-        "description" → fromString("ItemRequest object"),
+        "description" → fromString("ItemRequestDTO object"),
         "required" → fromBoolean(true),
         "schema" → obj(
-          "$ref" → fromString("#/definitions/ItemRequest")
+          "$ref" → fromString("#/definitions/ItemRequestDTO")
         )
       )
     ),
@@ -167,7 +167,7 @@ object SwaggerSpec {
         "description" → fromString("Item object"),
         "required" → fromBoolean(true),
         "schema" → obj(
-          "$ref" → fromString("#/definitions/ItemRequest")
+          "$ref" → fromString("#/definitions/ItemRequestDTO")
         )
       )
     ),
@@ -356,7 +356,7 @@ object SwaggerSpec {
   )
 
   private def definitions() = obj(
-    "ItemRequest" → obj(
+    "ItemRequestDTO" → obj(
       "type" → fromString("object"),
       "required" → arr(
         fromString("name"),
@@ -509,7 +509,7 @@ object SwaggerSpec {
         ),
       ),
     ),
-    "Op" → obj(
+    "JsonPatchOp" → obj(
       "type" → fromString("string"),
       "enum" → arr(
         fromString("replace"),
@@ -549,7 +549,7 @@ object SwaggerSpec {
       ),
       "properties" → obj(
         "op" → obj(
-          "$ref" → fromString("#/definitions/Op"),
+          "$ref" → fromString("#/definitions/JsonPatchOp"),
         ),
         "path" → obj(
           "type" → fromString("string"),

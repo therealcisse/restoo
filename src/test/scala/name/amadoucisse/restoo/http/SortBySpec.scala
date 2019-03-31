@@ -2,12 +2,12 @@ package name.amadoucisse.restoo
 package http
 
 import org.scalatest._
-import org.scalatest.prop.PropertyChecks
+import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 
 import eu.timepit.refined.types.string.NonEmptyString
 import eu.timepit.refined.auto._
 
-class SortBySpec extends FunSuite with PropertyChecks with Matchers {
+class SortBySpec extends FunSuite with ScalaCheckPropertyChecks with Matchers {
 
   val sortByFields = Table(
     "sortByField",

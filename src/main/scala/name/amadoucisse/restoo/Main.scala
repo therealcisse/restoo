@@ -22,8 +22,6 @@ import org.http4s.server.blaze.BlazeServerBuilder
 import org.http4s.server.middleware.Metrics
 import org.http4s.metrics.prometheus.{ Prometheus, PrometheusExportService }
 
-//import io.opencensus.scala.http4s.TracingMiddleware
-//import io.opencensus.scala.http.ServiceData
 import http.{ AppHttpErrorHandler, HttpErrorHandler, SwaggerSpec }
 import eu.timepit.refined.auto._
 
@@ -61,12 +59,9 @@ object Main extends IOApp {
 
       namespace ← Resource.liftF(AppConf.namespace[F])
 
-      service = Metrics[F](Prometheus(registry, prefix = namespace))(
-        // TracingMiddleware.withoutSpan( // TODO: uncomment when opencensus is updated
-        endpoints,
-        //   ServiceData(name = "Restoo", version = "1.0.0")
-        // )
-      )
+      service ← Resource.liftF {
+        Prometheus[F](registry, prefix = namespace).map(Metrics[F](_)(endpoints))
+      }
 
       metricsExportService = PrometheusExportService.service(registry)
       _ = PrometheusExportService.addDefaults(registry)
