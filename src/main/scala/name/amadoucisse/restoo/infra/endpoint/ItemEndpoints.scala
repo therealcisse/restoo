@@ -37,13 +37,23 @@ final class ItemEndpoints[F[_]: Sync: Clock: TraceSystem](implicit headerCodec: 
     HttpRoutes.of[F] {
       case req @ POST → Root ⇒
         val action = for {
-          itemRequest ← req.as[ItemRequest]
+          itemRequest ← req
+            .as[ItemRequest]
+            .newSpan(Span.Name("decode-item"))
 
           (name, price, category) ← itemRequest.validate
+            .newSpan(Span.Name("validate-item"))
 
           newId ← idService.newItemId
+            .newAnnotatedSpan(Span.Name("generate-item-id")) {
+              case Right(id) ⇒ Vector(Note.long("item-id", id.value))
+            }
 
-          now ← Clock[F].monotonic(TimeUnit.MILLISECONDS)
+          now ← Clock[F]
+            .monotonic(TimeUnit.MILLISECONDS)
+            .newAnnotatedSpan(Span.Name("get-current-time")) {
+              case Right(time) ⇒ Vector(Note.long("current-time", time))
+            }
 
           item = Item(
             name = name,
@@ -54,12 +64,12 @@ final class ItemEndpoints[F[_]: Sync: Clock: TraceSystem](implicit headerCodec: 
             id = newId,
           )
 
-          _ ← itemService.createItem(item)
+          _ ← itemService
+            .createItem(item)
+            .newSpan(Span.Name("create-item"))
         } yield item
 
-        val traced = action.toTraceT
-
-        tracedAction(req, Span.Name("add-item"))(traced) >>= { item ⇒
+        tracedAction(req, Span.Name("create-item-endpoint"))(action) >>= { item ⇒
           Created(item.asJson)
         }
 
@@ -69,13 +79,24 @@ final class ItemEndpoints[F[_]: Sync: Clock: TraceSystem](implicit headerCodec: 
     HttpRoutes.of[F] {
       case req @ PUT → (Root / ItemId(id)) ⇒
         val action = for {
-          item ← itemService.getItem(id)
+          item ← itemService
+            .getItem(id)
+            .newAnnotatedSpan(Span.Name("get-item"), Note.long("id", id.value)) {
+              case Right(item) ⇒ Vector(Note.long("item-id", item.id.value), Note.string("item-name", item.name.value))
+            }
 
-          itemRequest ← req.as[ItemRequest]
+          itemRequest ← req
+            .as[ItemRequest]
+            .newSpan(Span.Name("decode-item"))
 
           (name, price, category) ← itemRequest.validate
+            .newSpan(Span.Name("validate-item"))
 
-          now ← Clock[F].monotonic(TimeUnit.MILLISECONDS)
+          now ← Clock[F]
+            .monotonic(TimeUnit.MILLISECONDS)
+            .newAnnotatedSpan(Span.Name("get-current-time")) {
+              case Right(time) ⇒ Vector(Note.long("current-time", time))
+            }
 
           updated = item.copy(
             name = name,
@@ -84,12 +105,16 @@ final class ItemEndpoints[F[_]: Sync: Clock: TraceSystem](implicit headerCodec: 
             updatedAt = DateTime(Instant.ofEpochMilli(now))
           )
 
-          _ ← itemService.update(updated)
+          _ ← itemService
+            .update(updated)
+            .newSpan(Span.Name("update-item"), Note.long("item-id", updated.id.value))
         } yield updated
 
-        val traced = action.toTraceT
-
-        tracedAction(req, Span.Name("update-item"))(traced) >>= { item ⇒
+        tracedAction(
+          req,
+          Span.Name("update-item-endpoint"),
+          Note.long("item-id", id.value),
+        )(action) >>= { item ⇒
           Ok(item.asJson)
         }
     }
@@ -118,14 +143,19 @@ final class ItemEndpoints[F[_]: Sync: Clock: TraceSystem](implicit headerCodec: 
               patches ⇒
                 patches.nonEmpty && isValidJsonPatchForItem(patches)
             }
+            .newSpan(Span.Name("decode-json-patches"))
 
-          item ← itemService.getItem(id)
+          item ← itemService
+            .getItem(id)
+            .newAnnotatedSpan(Span.Name("get-item"), Note.long("id", id.value)) {
+              case Right(item) ⇒ Vector(Note.long("item-id", item.id.value), Note.string("item-name", item.name.value))
+            }
 
           itemRequest ← {
             val unitR = ItemRequest.fromItem(item)
 
             val result = patches.foldLeft(unitR.asJson) { (input, patch) ⇒
-              patch.applyOperation(input)
+              patch.applyPatch(input)
             }
 
             val maybeItemRequest = result.as[ItemRequest]
@@ -138,11 +168,16 @@ final class ItemEndpoints[F[_]: Sync: Clock: TraceSystem](implicit headerCodec: 
               ),
               Sync[F].pure
             )
-          }
+          }.newSpan(Span.Name("apply-patches"))
 
-          now ← Clock[F].monotonic(TimeUnit.MILLISECONDS)
+          now ← Clock[F]
+            .monotonic(TimeUnit.MILLISECONDS)
+            .newAnnotatedSpan(Span.Name("get-current-time")) {
+              case Right(time) ⇒ Vector(Note.long("current-time", time))
+            }
 
           (name, price, category) ← itemRequest.validate
+            .newSpan(Span.Name("validate-item"))
 
           updated = item.copy(
             name = name,
@@ -150,12 +185,16 @@ final class ItemEndpoints[F[_]: Sync: Clock: TraceSystem](implicit headerCodec: 
             category = category,
             updatedAt = DateTime(Instant.ofEpochMilli(now))
           )
-          _ ← itemService.update(updated)
+          _ ← itemService
+            .update(updated)
+            .newSpan(Span.Name("update-item"), Note.long("item-id", updated.id.value))
         } yield updated
 
-        val traced = action.toTraceT
-
-        tracedAction(req, Span.Name("patch-item"))(traced) >>= { item ⇒
+        tracedAction(
+          req,
+          Span.Name("patch-item-endpoint"),
+          Note.long("item-id", id.value),
+        )(action) >>= { item ⇒
           Ok(item.asJson)
         }
     }
@@ -200,13 +239,19 @@ final class ItemEndpoints[F[_]: Sync: Clock: TraceSystem](implicit headerCodec: 
         if (isValidOrderByForItem(orderBy)) {
           val action = itemService
             .list(maybeCategory, orderBy, Page(marker, limit))
-
-          val traced = action.toTraceT
+            .newAnnotatedSpan(
+              Span.Name("get-items"),
+              Note.string("category", maybeCategory.map(_.value)),
+              Note.long("limit", limit.map(_.toLong)),
+              Note.long("marker", marker.map(_.toEpochMilli)),
+            ) {
+              case Right(items) ⇒ Vector(Note.long("items-count", items.size.toLong))
+            }
 
           tracedAction(
             req,
-            Span.Name("list-items"),
-          )(traced) >>= { items ⇒
+            Span.Name("list-items-endpoint")
+          )(action) >>= { items ⇒
             Ok(items.asJson)
           }
 
@@ -218,29 +263,31 @@ final class ItemEndpoints[F[_]: Sync: Clock: TraceSystem](implicit headerCodec: 
   private def deleteItemEndpoint(itemService: ItemService[F]): HttpRoutes[F] =
     HttpRoutes.of[F] {
       case req @ DELETE → (Root / ItemId(id)) ⇒
-        val action = itemService.deleteItem(id)
-
-        val traced = action.toTraceT
+        val action = itemService
+          .deleteItem(id)
+          .newSpan(Span.Name("delete-item"), Note.long("id", id.value))
 
         tracedAction(
           req,
-          Span.Name("delete-item"),
+          Span.Name("delete-item-endpoint"),
           Note.long("item-id", id.value)
-        )(traced) >> NoContent()
+        )(action) >> NoContent()
     }
 
   private def getItemEndpoint(itemService: ItemService[F]): HttpRoutes[F] =
     HttpRoutes.of[F] {
       case req @ GET → (Root / ItemId(id)) ⇒
-        val action = itemService.getItem(id)
-
-        val traced = action.toTraceT
+        val action = itemService
+          .getItem(id)
+          .newAnnotatedSpan(Span.Name("get-item"), Note.long("id", id.value)) {
+            case Right(item) ⇒ Vector(Note.long("item-id", item.id.value), Note.string("item-name", item.name.value))
+          }
 
         tracedAction(
           req,
-          Span.Name("get-item"),
+          Span.Name("get-item-endpoint"),
           Note.long("item-id", id.value)
-        )(traced) >>= { item ⇒
+        )(action) >>= { item ⇒
           Ok(item.asJson)
         }
     }
@@ -255,16 +302,22 @@ final class ItemEndpoints[F[_]: Sync: Clock: TraceSystem](implicit headerCodec: 
       case req @ PUT → (Root / ItemId(itemId) / "stocks") :? DeltaQueryParamMatcher(deltaValidated) ⇒
         deltaValidated.fold(
           _ ⇒ BadRequest("unable to parse argument `delta`"), { delta ⇒
-            val action = stockService.createEntry(itemId, delta)
-
-            val traced = action.toTraceT
+            val action = stockService
+              .createEntry(itemId, delta)
+              .newAnnotatedSpan(
+                Span.Name("create-stock-entry"),
+                Note.long("id", itemId.value),
+                Note.long("delta", delta.value.toLong),
+              ) {
+                case Right(stock) ⇒ Vector(Note.long("quantity", stock.quantity))
+              }
 
             tracedAction(
               req,
               Span.Name("change-item-stock"),
               Note.long("item-id", itemId.value),
               Note.long("stock-amount", delta.value.toLong)
-            )(traced) >>= { stock ⇒
+            )(action) >>= { stock ⇒
               Ok(stock.asJson)
             }
 
@@ -277,15 +330,20 @@ final class ItemEndpoints[F[_]: Sync: Clock: TraceSystem](implicit headerCodec: 
   private def getStockEndpoint(stockService: StockService[F]): HttpRoutes[F] =
     HttpRoutes.of[F] {
       case req @ GET → (Root / ItemId(itemId) / "stocks") ⇒
-        val action = stockService.getStock(itemId)
-
-        val traced = action.toTraceT
+        val action = stockService
+          .getStock(itemId)
+          .newAnnotatedSpan(
+            Span.Name("get-item-stock"),
+            Note.long("id", itemId.value),
+          ) {
+            case Right(stock) ⇒ Vector(Note.long("quantity", stock.quantity))
+          }
 
         tracedAction(
           req,
-          Span.Name("get-item"),
+          Span.Name("get-item-stock-endpoint"),
           Note.long("item-id", itemId.value)
-        )(traced) >>= { item ⇒
+        )(action) >>= { item ⇒
           Ok(item.asJson)
         }
     }

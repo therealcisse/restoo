@@ -21,7 +21,7 @@ sealed trait JsonPatch {
 
   def value: Json
 
-  final def applyOperation(json: Json): Json = this match {
+  final def applyPatch(json: Json): Json = this match {
     case ReplaceOp(path, value) ⇒
       json.mapObject { o ⇒
         val key = removeLeadingSlash(path)
