@@ -176,6 +176,12 @@ final class ItemEndpoints[F[_]: Sync: Clock] extends Http4sDsl[F] with Codecs {
         case _ ⇒ true
       }
 
+    def list(maybeCategory: Option[Category], orderBy: List[SortBy], page: Page) =
+      itemService
+        .list(maybeCategory, orderBy, page) >>= { items ⇒
+        Ok(items.asJson)
+      }
+
     HttpRoutes.of[F] {
       case GET → Root :? OptionalCategoryQueryParamMatcher(maybeCategory) +& OptionalOrderByQueryParamMatcher(
             maybeOrderBy
@@ -183,15 +189,17 @@ final class ItemEndpoints[F[_]: Sync: Clock] extends Http4sDsl[F] with Codecs {
         val orderBy = maybeOrderBy.getOrElse(Nil)
 
         if (isValidOrderByForItem(orderBy)) {
-          val items = itemService
-            .list(maybeCategory, orderBy, Page(marker, limit))
 
-          Ok(
-            fs2.Stream("[") ++
-              items
-                .map(_.asJson.noSpaces)
-                .intersperse(",") ++ fs2.Stream("]")
-          )
+          limit match {
+            case Some(n) ⇒
+              refineV[Page.Limit](n) match {
+                case Right(n) ⇒ list(maybeCategory, orderBy, Page(marker, Some(n)))
+                case _        ⇒ BadRequest(s"Invalid value for limit (max: 512): $n")
+              }
+
+            case None ⇒ list(maybeCategory, orderBy, Page(marker, None))
+          }
+
         } else BadRequest(s"Invalid value for `sort_by` parameter: $orderBy")
 
     }

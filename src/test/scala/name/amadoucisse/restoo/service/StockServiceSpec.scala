@@ -61,7 +61,7 @@ class StockServiceSpec extends WordSpec with MustMatchers with ScalaCheckDrivenP
 
     def delete(itemId: ItemId): IO[Unit] = ???
 
-    def list(category: Option[Category], orderBy: Seq[SortBy], page: Page): fs2.Stream[IO, Item] = ???
+    def list(category: Option[Category], orderBy: Seq[SortBy], page: Page): IO[Vector[Item]] = ???
     def create(item: Item): IO[Unit] = ???
     def update(item: Item): IO[Unit] = ???
 

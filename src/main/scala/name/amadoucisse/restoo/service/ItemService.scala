@@ -14,7 +14,7 @@ final class ItemService[F[_]](itemRepo: ItemRepositoryAlgebra[F]) {
 
   def update(item: Item): F[Unit] = itemRepo.update(item)
 
-  def list(category: Option[Category], orderBy: Seq[SortBy], page: Page): fs2.Stream[F, Item] =
+  def list(category: Option[Category], orderBy: Seq[SortBy], page: Page): F[Vector[Item]] =
     itemRepo.list(category, orderBy, page)
 }
 

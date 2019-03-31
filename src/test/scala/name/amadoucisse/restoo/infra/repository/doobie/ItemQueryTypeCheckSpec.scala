@@ -28,7 +28,7 @@ class ItemQueryTypeCheckSpec extends RepositorySpec with Matchers {
   test("NOT list any") {
     IOAssertion {
       for {
-        items ← repo.list(None, Nil, Page(None, None)).compile.toList
+        items ← repo.list(None, Nil, Page(None, None))
       } yield {
         items shouldBe 'empty
       }

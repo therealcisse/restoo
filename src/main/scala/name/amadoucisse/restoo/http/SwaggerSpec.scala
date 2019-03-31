@@ -61,6 +61,20 @@ object SwaggerSpec {
         "description" → fromString("Optional category."),
         "type" → fromString("string"),
       ),
+      obj(
+        "in" → fromString("query"),
+        "name" → fromString("marker"),
+        "description" → fromString("Optional marker for minimum item."),
+        "type" → fromString("string"),
+        "format" → fromString("date-time"),
+      ),
+      obj(
+        "in" → fromString("query"),
+        "name" → fromString("limit"),
+        "description" → fromString("Optional limit (max: 512)."),
+        "type" → fromString("integer"),
+        "format" → fromString("int32"),
+      ),
     ),
     "responses" → obj(
       "200" → obj(

@@ -66,8 +66,8 @@ final class DoobieItemRepositoryInterpreter[F[_]: Sync](val xa: Transactor[F]) e
   def delete(itemId: ItemId): F[Unit] =
     ItemQueries.delete(itemId).run.void.transact(xa)
 
-  def list(category: Option[Category], orderBy: Seq[SortBy], page: Page): fs2.Stream[F, Item] =
-    ItemQueries.selectAll(category, orderBy, page).stream.transact(xa)
+  def list(category: Option[Category], orderBy: Seq[SortBy], page: Page): F[Vector[Item]] =
+    ItemQueries.selectAll(category, orderBy, page).to[Vector].transact(xa)
 }
 
 object DoobieItemRepositoryInterpreter {
