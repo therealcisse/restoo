@@ -3,9 +3,10 @@ package service
 
 import cats.implicits._
 import cats.effect.IO
-import domain.{ DateTime, IdRepositoryAlgebra }
+import domain.{ DateTime }
 import domain.items._
 import domain.entries._
+import repository.{ EntryRepository, IdRepository, ItemRepository }
 import http.{ Page, SortBy }
 import common.IOAssertion
 import org.scalatest.{ MustMatchers, WordSpec }
@@ -56,7 +57,7 @@ class StockServiceSpec extends WordSpec with MustMatchers with ScalaCheckDrivenP
 
   }
 
-  final class ItemRepositoryAlgebraImpl extends ItemRepositoryAlgebra[IO] {
+  final class ItemRepositoryImpl extends ItemRepository[IO] {
     def findByName(name: Name): IO[Item] = ???
 
     def delete(itemId: ItemId): IO[Unit] = ???
@@ -79,7 +80,7 @@ class StockServiceSpec extends WordSpec with MustMatchers with ScalaCheckDrivenP
     }
   }
 
-  final class EntryRepositoryAlgebraImpl extends EntryRepositoryAlgebra[IO] {
+  final class EntryRepositoryImpl extends EntryRepository[IO] {
     def create(entry: Entry): IO[Unit] = entry.itemId match {
       case `existingItemId` ⇒ ().pure[IO]
       case _                ⇒ IO.raiseError(new RuntimeException("Unexpected parameter"))
@@ -88,16 +89,16 @@ class StockServiceSpec extends WordSpec with MustMatchers with ScalaCheckDrivenP
     def count(id: ItemId): IO[Long] = existingItemCount.pure[IO]
   }
 
-  final class IdRepositoryAlgebraImpl extends IdRepositoryAlgebra[IO] {
+  final class IdRepositoryImpl extends IdRepository[IO] {
     def newItemId: IO[ItemId] = ???
 
     def newEntryId: IO[EntryId] = IO(EntryId(10L))
   }
 
   trait Context extends IOExecution {
-    val itemRepo = new ItemRepositoryAlgebraImpl
-    val entryRepo = new EntryRepositoryAlgebraImpl
-    val idRepo = new IdRepositoryAlgebraImpl
+    val itemRepo = new ItemRepositoryImpl
+    val entryRepo = new EntryRepositoryImpl
+    val idRepo = new IdRepositoryImpl
 
     val p = new StockService[IO](entryRepo, itemRepo, idRepo)
   }

@@ -1,9 +1,9 @@
 package name.amadoucisse.restoo
-package infra
-package repository.inmemory
+package infra.repositoryimpl.inmemory
 
 import cats.implicits._
 
+import repository.EntryRepository
 import domain.entries._
 import domain.items.ItemId
 
@@ -11,7 +11,7 @@ import cats.effect.concurrent.Ref
 import cats.effect.Sync
 
 final class EntryRepositoryInMemoryInterpreter[F[_]: Sync](ref: Ref[F, Map[EntryId, Entry]])
-    extends EntryRepositoryAlgebra[F] {
+    extends EntryRepository[F] {
 
   def create(entry: Entry): F[Unit] = ref.update(_.updated(entry.id, entry))
 

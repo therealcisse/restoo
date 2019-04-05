@@ -4,6 +4,7 @@ package service
 import cats.implicits._
 import cats.effect.IO
 import domain.DateTime
+import repository.ItemRepository
 import domain.items._
 import domain.AppError
 import common.IOAssertion
@@ -124,7 +125,7 @@ class ItemServiceSpec extends WordSpec with MustMatchers with IOExecution {
 
   }
 
-  final class ItemRepositoryAlgebraImpl extends ItemRepositoryAlgebra[IO] {
+  final class ItemRepositoryImpl extends ItemRepository[IO] {
     def create(item: Item): IO[Unit] = (item.name, item.price, item.category) match {
       case (`expectedName`, `expectedPrice`, `expectedCategory`) ⇒
         ().pure[IO]
@@ -161,7 +162,7 @@ class ItemServiceSpec extends WordSpec with MustMatchers with IOExecution {
   }
 
   trait Context {
-    val itemRepo = new ItemRepositoryAlgebraImpl
+    val itemRepo = new ItemRepositoryImpl
 
     val p = new ItemService[IO](itemRepo)
   }

@@ -1,16 +1,15 @@
 package name.amadoucisse.restoo
-package infra
-package repository.doobie
+package infra.repositoryimpl.doobie
 
 import cats.Monad
 import doobie._
 import doobie.implicits._
-import domain.IdRepositoryAlgebra
+import repository.IdRepository
 import domain.items.ItemId
 import domain.entries.EntryId
 import queries.IdQueries
 
-final class DoobieIdRepositoryInterpreter[F[_]: Monad](val xa: Transactor[F]) extends IdRepositoryAlgebra[F] {
+final class DoobieIdRepositoryInterpreter[F[_]: Monad](val xa: Transactor[F]) extends IdRepository[F] {
   def newItemId: F[ItemId] =
     IdQueries.newItemId.unique
       .map(ItemId(_))

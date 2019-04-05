@@ -5,17 +5,17 @@ import cats.temp.par._
 import cats.implicits._
 import cats.effect.{ Clock, Sync }
 import domain.{ AppError, DateTime }
-import domain.IdRepositoryAlgebra
-import domain.items.{ ItemId, ItemRepositoryAlgebra }
-import domain.entries.{ Delta, Entry, EntryRepositoryAlgebra, Stock }
+import repository.{ EntryRepository, IdRepository, ItemRepository }
+import domain.items.ItemId
+import domain.entries.{ Delta, Entry, Stock }
 
 import java.util.concurrent.TimeUnit
 import java.time.Instant
 
 final class StockService[F[_]: Sync: Clock: Par](
-    entryRepo: EntryRepositoryAlgebra[F],
-    itemRepo: ItemRepositoryAlgebra[F],
-    idRepo: IdRepositoryAlgebra[F],
+    entryRepo: EntryRepository[F],
+    itemRepo: ItemRepository[F],
+    idRepo: IdRepository[F],
 ) {
 
   def createEntry(itemId: ItemId, delta: Delta): F[Stock] = {
@@ -49,9 +49,9 @@ final class StockService[F[_]: Sync: Clock: Par](
 
 object StockService {
   def apply[F[_]: Sync: Clock: Par](
-      entryRepo: EntryRepositoryAlgebra[F],
-      itemRepo: ItemRepositoryAlgebra[F],
-      idRepo: IdRepositoryAlgebra[F],
+      entryRepo: EntryRepository[F],
+      itemRepo: ItemRepository[F],
+      idRepo: IdRepository[F],
   ): StockService[F] =
     new StockService[F](entryRepo, itemRepo, idRepo)
 }

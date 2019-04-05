@@ -6,7 +6,7 @@ import domain.items._
 import domain.entries._
 import common.IOAssertion
 import service.{ IdService, ItemService, StockService }
-import repository.inmemory.{
+import repositoryimpl.inmemory.{
   EntryRepositoryInMemoryInterpreter,
   IdRepositoryInMemoryInterpreter,
   ItemRepositoryInMemoryInterpreter

@@ -8,7 +8,7 @@ import io.prometheus.client.CollectorRegistry
 import config.{ AppConf, DatabaseConf }
 import domain.AppError
 import infra.endpoint.{ Index, ItemEndpoints }
-import infra.repository.doobie.{
+import infra.repositoryimpl.doobie.{
   DoobieEntryRepositoryInterpreter,
   DoobieIdRepositoryInterpreter,
   DoobieItemRepositoryInterpreter

@@ -1,10 +1,11 @@
 package name.amadoucisse.restoo
-package domain
-package items
+package repository
+
+import domain.items._
 
 import http.{ Page, SortBy }
 
-trait ItemRepositoryAlgebra[F[_]] {
+trait ItemRepository[F[_]] {
   def create(item: Item): F[Unit]
 
   def update(item: Item): F[Unit]

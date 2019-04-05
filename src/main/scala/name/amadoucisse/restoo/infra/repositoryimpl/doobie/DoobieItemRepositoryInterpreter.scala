@@ -1,6 +1,5 @@
 package name.amadoucisse.restoo
-package infra
-package repository.doobie
+package infra.repositoryimpl.doobie
 
 import cats.syntax.functor._
 import cats.effect.Sync
@@ -9,10 +8,11 @@ import doobie.implicits._
 import doobie.postgres._
 import domain.AppError
 import domain.items._
+import repository.ItemRepository
 import http.{ Page, SortBy }
 import queries.ItemQueries
 
-final class DoobieItemRepositoryInterpreter[F[_]: Sync](val xa: Transactor[F]) extends ItemRepositoryAlgebra[F] {
+final class DoobieItemRepositoryInterpreter[F[_]: Sync](val xa: Transactor[F]) extends ItemRepository[F] {
 
   def create(item: Item): F[Unit] =
     ItemQueries

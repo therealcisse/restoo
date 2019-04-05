@@ -3,9 +3,9 @@ package service
 
 import domain.items.ItemId
 import domain.entries.EntryId
-import domain.IdRepositoryAlgebra
+import repository.IdRepository
 
-final class IdService[F[_]](idRepo: IdRepositoryAlgebra[F]) {
+final class IdService[F[_]](idRepo: IdRepository[F]) {
   def newItemId: F[ItemId] = idRepo.newItemId
 
   def newEntryId: F[EntryId] =
@@ -14,6 +14,6 @@ final class IdService[F[_]](idRepo: IdRepositoryAlgebra[F]) {
 }
 
 object IdService {
-  def apply[F[_]](repository: IdRepositoryAlgebra[F]): IdService[F] =
+  def apply[F[_]](repository: IdRepository[F]): IdService[F] =
     new IdService[F](repository)
 }

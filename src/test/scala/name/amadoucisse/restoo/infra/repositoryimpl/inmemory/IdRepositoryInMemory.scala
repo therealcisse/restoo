@@ -1,17 +1,16 @@
 package name.amadoucisse.restoo
-package infra
-package repository.inmemory
+package infra.repositoryimpl.inmemory
 
 import cats.implicits._
 
-import domain.IdRepositoryAlgebra
+import repository.IdRepository
 import domain.entries._
 import domain.items.ItemId
 
 import cats.effect.concurrent.Ref
 import cats.effect.Sync
 
-final class IdRepositoryInMemoryInterpreter[F[_]: Sync](ref: Ref[F, Long]) extends IdRepositoryAlgebra[F] {
+final class IdRepositoryInMemoryInterpreter[F[_]: Sync](ref: Ref[F, Long]) extends IdRepository[F] {
 
   def newItemId: F[ItemId] = ref.modify(s ⇒ (s + 1L, ItemId(s)))
 

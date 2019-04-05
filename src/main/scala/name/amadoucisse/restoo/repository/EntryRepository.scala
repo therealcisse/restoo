@@ -1,10 +1,10 @@
 package name.amadoucisse.restoo
-package domain
-package entries
+package repository
 
-import items.ItemId
+import domain.items.ItemId
+import domain.entries.Entry
 
-trait EntryRepositoryAlgebra[F[_]] {
+trait EntryRepository[F[_]] {
   def create(entry: Entry): F[Unit]
 
   def count(id: ItemId): F[Long]

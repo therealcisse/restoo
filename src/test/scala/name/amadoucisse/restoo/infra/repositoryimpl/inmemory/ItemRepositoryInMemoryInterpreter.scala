@@ -1,9 +1,9 @@
 package name.amadoucisse.restoo
-package infra
-package repository.inmemory
+package infra.repositoryimpl.inmemory
 
 import cats.effect.Sync
 import cats.implicits._
+import repository.ItemRepository
 import domain.items._
 import domain.AppError
 import http.{ Page, SortBy }
@@ -11,8 +11,7 @@ import http.{ Page, SortBy }
 import cats.effect.concurrent.Ref
 import cats.effect.Sync
 
-final class ItemRepositoryInMemoryInterpreter[F[_]: Sync](ref: Ref[F, Map[ItemId, Item]])
-    extends ItemRepositoryAlgebra[F] {
+final class ItemRepositoryInMemoryInterpreter[F[_]: Sync](ref: Ref[F, Map[ItemId, Item]]) extends ItemRepository[F] {
 
   def create(item: Item): F[Unit] = {
 

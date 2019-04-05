@@ -1,10 +1,11 @@
 package name.amadoucisse.restoo
 package service
 
-import domain.items.{ Category, Item, ItemId, ItemRepositoryAlgebra }
+import repository.ItemRepository
+import domain.items.{ Category, Item, ItemId }
 import http.{ Page, SortBy }
 
-final class ItemService[F[_]](itemRepo: ItemRepositoryAlgebra[F]) {
+final class ItemService[F[_]](itemRepo: ItemRepository[F]) {
   def createItem(item: Item): F[Unit] = itemRepo.create(item)
 
   def getItem(itemId: ItemId): F[Item] =
@@ -19,6 +20,6 @@ final class ItemService[F[_]](itemRepo: ItemRepositoryAlgebra[F]) {
 }
 
 object ItemService {
-  def apply[F[_]](repository: ItemRepositoryAlgebra[F]): ItemService[F] =
+  def apply[F[_]](repository: ItemRepository[F]): ItemService[F] =
     new ItemService[F](repository)
 }

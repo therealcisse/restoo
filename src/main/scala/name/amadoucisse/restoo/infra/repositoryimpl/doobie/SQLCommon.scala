@@ -1,6 +1,5 @@
 package name.amadoucisse.restoo
-package infra
-package repository.doobie
+package infra.repositoryimpl.doobie
 
 import java.sql.Timestamp
 
