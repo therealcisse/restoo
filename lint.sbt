@@ -3,10 +3,6 @@ wartremoverErrors ++= Warts.unsafe
 wartremoverErrors -= Wart.NonUnitStatements
 wartremoverErrors -= Wart.Any
 
-//scalafixSemanticdbVersion := "4.0.0-M8"
-
-scalafixEnabled := false
-
 scalacOptions in ThisBuild ++= Seq(
   // format: off
   "-Xmacro-settings:materialize-derivations", // better error messages for implicits in pureconfig
