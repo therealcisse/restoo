@@ -15,7 +15,10 @@ import domain.items._
 import domain.entries._
 import config.{ AppConf, SwaggerConf }
 import http.{ HttpErrorHandler, JsonPatch, OrderBy, Page, SortBy, SwaggerSpec }
-import service.{ IdService, ItemService, StockService }
+import service.{ Id, Items, Stocks }
+import service.Id._
+import service.Items._
+import service.Stocks._
 import utils.Validation
 import eu.timepit.refined._
 import eu.timepit.refined.auto._
@@ -25,10 +28,14 @@ import java.time.Instant
 
 import cats.mtl.ApplicativeAsk
 
-final class ItemEndpoints[F[_]: Sync: Clock] extends Http4sDsl[F] with Codecs {
+final class ItemEndpoints[
+    F[_]: Sync: Clock
+](implicit idA: ApplicativeAsk[F, Id[F]], itemsA: ApplicativeAsk[F, Items[F]], stocksA: ApplicativeAsk[F, Stocks[F]])
+    extends Http4sDsl[F]
+    with Codecs {
   import ItemEndpoints._
 
-  private def createEndpoint(itemService: ItemService[F], idService: IdService[F]): HttpRoutes[F] =
+  private def createEndpoint: HttpRoutes[F] =
     HttpRoutes.of[F] {
       case req @ POST → Root ⇒
         for {
@@ -36,7 +43,7 @@ final class ItemEndpoints[F[_]: Sync: Clock] extends Http4sDsl[F] with Codecs {
 
           (name, price, category) ← itemRequest.validate
 
-          newId ← idService.newItemId
+          newId ← newItemId[F]
 
           now ← Clock[F].monotonic(TimeUnit.MILLISECONDS)
 
@@ -49,18 +56,18 @@ final class ItemEndpoints[F[_]: Sync: Clock] extends Http4sDsl[F] with Codecs {
             id = newId,
           )
 
-          _ ← itemService.createItem(item)
+          _ ← createItem[F](item)
 
           resp ← Created(item.asJson)
         } yield resp
 
     }
 
-  private def updateEndpoint(itemService: ItemService[F]): HttpRoutes[F] =
+  private def updateEndpoint: HttpRoutes[F] =
     HttpRoutes.of[F] {
       case req @ PUT → (Root / ItemId(id)) ⇒
         for {
-          item ← itemService.getItem(id)
+          item ← getItem[F](id)
 
           itemRequest ← req.as[ItemRequest]
 
@@ -75,14 +82,14 @@ final class ItemEndpoints[F[_]: Sync: Clock] extends Http4sDsl[F] with Codecs {
             updatedAt = DateTime(Instant.ofEpochMilli(now))
           )
 
-          _ ← itemService.update(updated)
+          _ ← updateItem[F](updated)
 
           resp ← Ok(updated.asJson)
         } yield resp
 
     }
 
-  private def patchEndpoint(itemService: ItemService[F]): HttpRoutes[F] = {
+  private def patchEndpoint: HttpRoutes[F] = {
 
     @annotation.tailrec
     def isValidJsonPatchForItem(patches: Vector[JsonPatch]): Boolean =
@@ -107,7 +114,7 @@ final class ItemEndpoints[F[_]: Sync: Clock] extends Http4sDsl[F] with Codecs {
                 patches.nonEmpty && isValidJsonPatchForItem(patches)
             }
 
-          item ← itemService.getItem(id)
+          item ← getItem[F](id)
 
           itemRequest ← {
             val unitR = ItemRequest.fromItem(item)
@@ -138,7 +145,7 @@ final class ItemEndpoints[F[_]: Sync: Clock] extends Http4sDsl[F] with Codecs {
             category = category,
             updatedAt = DateTime(Instant.ofEpochMilli(now))
           )
-          _ ← itemService.update(updated)
+          _ ← updateItem[F](updated)
 
           resp ← Ok(updated.asJson)
         } yield resp
@@ -146,7 +153,7 @@ final class ItemEndpoints[F[_]: Sync: Clock] extends Http4sDsl[F] with Codecs {
     }
   }
 
-  private def listEndpoint(itemService: ItemService[F]): HttpRoutes[F] = {
+  private def listEndpoint: HttpRoutes[F] = {
     implicit val categoryQueryParamDecoder: QueryParamDecoder[Category] =
       QueryParamDecoder[String].map(Category(_))
 
@@ -177,8 +184,7 @@ final class ItemEndpoints[F[_]: Sync: Clock] extends Http4sDsl[F] with Codecs {
       }
 
     def list(maybeCategory: Option[Category], orderBy: List[SortBy], page: Page) =
-      itemService
-        .list(maybeCategory, orderBy, page) >>= { items ⇒
+      listItems[F](maybeCategory, orderBy, page) >>= { items ⇒
         Ok(items.asJson)
       }
 
@@ -205,25 +211,25 @@ final class ItemEndpoints[F[_]: Sync: Clock] extends Http4sDsl[F] with Codecs {
     }
   }
 
-  private def deleteItemEndpoint(itemService: ItemService[F]): HttpRoutes[F] =
+  private def deleteItemEndpoint: HttpRoutes[F] =
     HttpRoutes.of[F] {
       case DELETE → (Root / ItemId(id)) ⇒
         for {
-          _ ← itemService.deleteItem(id)
+          _ ← deleteItem[F](id)
           resp ← NoContent()
         } yield resp
     }
 
-  private def getItemEndpoint(itemService: ItemService[F]): HttpRoutes[F] =
+  private def getItemEndpoint: HttpRoutes[F] =
     HttpRoutes.of[F] {
       case GET → (Root / ItemId(id)) ⇒
         for {
-          item ← itemService.getItem(id)
+          item ← getItem[F](id)
           resp ← Ok(item.asJson)
         } yield resp
     }
 
-  private def createStockEntryEndpoint(stockService: StockService[F]): HttpRoutes[F] = {
+  private def createStockEntryEndpoint: HttpRoutes[F] = {
     implicit val deltaQueryParamDecoder: QueryParamDecoder[Delta] =
       QueryParamDecoder[Int].map(Delta(_))
 
@@ -235,7 +241,7 @@ final class ItemEndpoints[F[_]: Sync: Clock] extends Http4sDsl[F] with Codecs {
           _ ⇒ BadRequest("unable to parse argument `delta`"),
           value ⇒
             for {
-              stock ← stockService.createEntry(itemId, value)
+              stock ← createEntry[F](itemId, value)
               resp ← Ok(stock.asJson)
             } yield resp
         )
@@ -243,11 +249,11 @@ final class ItemEndpoints[F[_]: Sync: Clock] extends Http4sDsl[F] with Codecs {
     }
   }
 
-  private def getStockEndpoint(stockService: StockService[F]): HttpRoutes[F] =
+  private def getStockEndpoint: HttpRoutes[F] =
     HttpRoutes.of[F] {
       case GET → (Root / ItemId(itemId) / "stocks") ⇒
         for {
-          stock ← stockService.getStock(itemId)
+          stock ← getStock[F](itemId)
           resp ← Ok(stock.asJson)
         } yield resp
     }
@@ -258,35 +264,31 @@ final class ItemEndpoints[F[_]: Sync: Clock] extends Http4sDsl[F] with Codecs {
         Ok(SwaggerSpec.swaggerSpec(swaggerConf))
     }
 
-  def endpoints(itemService: ItemService[F],
-                stockService: StockService[F],
-                idService: IdService[F],
-                swaggerConf: SwaggerConf)(
+  def endpoints(swaggerConf: SwaggerConf)(
       implicit H: HttpErrorHandler[F, AppError],
   ): HttpRoutes[F] =
     H.handle {
-      createEndpoint(itemService, idService) <+>
-        patchEndpoint(itemService) <+>
-        updateEndpoint(itemService) <+>
-        deleteItemEndpoint(itemService) <+>
-        getItemEndpoint(itemService) <+>
-        listEndpoint(itemService) <+>
-        createStockEntryEndpoint(stockService) <+>
-        getStockEndpoint(stockService) <+>
+      createEndpoint <+>
+        patchEndpoint <+>
+        updateEndpoint <+>
+        deleteItemEndpoint <+>
+        getItemEndpoint <+>
+        listEndpoint <+>
+        createStockEntryEndpoint <+>
+        getStockEndpoint <+>
         getSwaggerSpec(swaggerConf)
     }
 }
 
 object ItemEndpoints {
-  def endpoints[F[_]: Sync: Clock: ApplicativeAsk[?[_], AppConf]](itemService: ItemService[F],
-                                                                  stockService: StockService[F],
-                                                                  idService: IdService[F],
-  )(
-      implicit H: HttpErrorHandler[F, AppError]
+  def endpoints[F[_]: Sync: Clock: ApplicativeAsk[?[_], AppConf]: HttpErrorHandler[?[_], AppError]](
+      implicit idA: ApplicativeAsk[F, Id[F]],
+      itemsA: ApplicativeAsk[F, Items[F]],
+      stocksA: ApplicativeAsk[F, Stocks[F]]
   ): F[HttpRoutes[F]] =
     for {
       swaggerConf ← AppConf.swaggerConf[F]
-    } yield new ItemEndpoints[F].endpoints(itemService, stockService, idService, swaggerConf)
+    } yield new ItemEndpoints[F].endpoints(swaggerConf)
 
   final case class ItemRequest(
       name: String,

@@ -1,6 +1,7 @@
 package name.amadoucisse.restoo
 package service
 
+import cats.Applicative
 import cats.implicits._
 import cats.effect.IO
 import domain.DateTime
@@ -11,6 +12,10 @@ import common.IOAssertion
 import http.{ Page, SortBy }
 import org.scalatest.{ MustMatchers, WordSpec }
 import eu.timepit.refined.auto._
+
+import service.Items._
+
+import cats.mtl.{ ApplicativeAsk, DefaultApplicativeAsk }
 
 import java.time.Instant
 
@@ -39,7 +44,7 @@ class ItemServiceSpec extends WordSpec with MustMatchers with IOExecution {
           id = newItemId,
         )
 
-        val op = p.createItem(item)
+        val op = createItem[IO](item)
 
         IOAssertion {
 
@@ -64,7 +69,7 @@ class ItemServiceSpec extends WordSpec with MustMatchers with IOExecution {
           id = newItemId,
         )
 
-        val op = p.createItem(item)
+        val op = createItem[IO](item)
 
         a[AppError.ItemAlreadyExists] should be thrownBy IOAssertion {
           op
@@ -89,7 +94,7 @@ class ItemServiceSpec extends WordSpec with MustMatchers with IOExecution {
           id = newItemId,
         )
 
-        val op = p.update(item)
+        val op = updateItem[IO](item)
 
         IOAssertion {
 
@@ -114,7 +119,7 @@ class ItemServiceSpec extends WordSpec with MustMatchers with IOExecution {
           id = newItemId,
         )
 
-        val op = p.update(item)
+        val op = updateItem[IO](item)
 
         a[AppError.ItemAlreadyExists] should be thrownBy IOAssertion {
           op
@@ -164,6 +169,13 @@ class ItemServiceSpec extends WordSpec with MustMatchers with IOExecution {
   trait Context {
     val itemRepo = new ItemRepositoryImpl
 
-    val p = new ItemService[IO](itemRepo)
+    implicit val itemsInstance: ApplicativeAsk[IO, Items[IO]] = new DefaultApplicativeAsk[IO, Items[IO]] {
+      val applicative: Applicative[IO] = Applicative[IO]
+      def ask: IO[Items[IO]] =
+        IO.pure(new Items[IO] {
+          def items: Items.Service[IO] = Items.Live[IO](itemRepo)
+        })
+    }
+
   }
 }

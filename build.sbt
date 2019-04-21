@@ -15,22 +15,22 @@ promptTheme := PromptTheme(List(
 val CatsVersion         = "1.6.0"
 val CatsParVersion      = "0.2.1"
 val CirceVersion        = "0.11.1"
-val CirceJava8Version   = "0.10.1"
-val CirceOpticsVersion  = "0.10.0"
-val MeowMTLVersion      = "0.2.0"
-val Http4sVersion       = "0.20.0-M7"
+val CirceJava8Version   = "0.11.1"
+val CirceOpticsVersion  = "0.11.0"
+val MeowMTLVersion      = "0.2.1"
+val Http4sVersion       = "0.20.0-RC1"
 val ScalaCheckVersion   = "1.14.0"
 val ScalaTestVersion    = "3.0.7"
 val DoobieVersion       = "0.6.0"
 val H2Version           = "1.4.196"
 val FlywayVersion       = "5.2.4"
-val PureConfigVersion   = "0.10.1"
+val PureConfigVersion   = "0.10.2"
 
 val LogbackVersion    = "1.2.3"
 
-val SwaggerUIVersion  = "3.20.9"
+val SwaggerUIVersion  = "3.22.0"
 
-val RefinedVersion = "0.9.4"
+val RefinedVersion = "0.9.5"
 
 libraryDependencies ++= Seq(
   "org.typelevel"           %% "cats-core"              % CatsVersion,
@@ -79,8 +79,8 @@ libraryDependencies ++= Seq(
   "io.chrisdavenport"       %% "cats-par"                             % CatsParVersion,
 )
 
-addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.9")
-addCompilerPlugin("com.olegpy"     %% "better-monadic-for" % "0.3.0-M4")
+addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.10")
+addCompilerPlugin("com.olegpy"     %% "better-monadic-for" % "0.3.0")
 
 enablePlugins(ScalafmtPlugin, JavaAppPackaging, DockerComposePlugin, BuildInfoPlugin)
 
