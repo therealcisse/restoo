@@ -1,9 +1,10 @@
 package name.amadoucisse.restoo
 package service
 
+import cats.Applicative
 import cats.implicits._
 import cats.effect.IO
-import domain.{ DateTime }
+import domain.DateTime
 import domain.items._
 import domain.entries._
 import repository.{ EntryRepository, IdRepository, ItemRepository }
@@ -12,6 +13,10 @@ import common.IOAssertion
 import org.scalatest.{ MustMatchers, WordSpec }
 import name.amadoucisse.restoo.domain.AppError
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
+
+import service.Stocks._
+
+import cats.mtl.{ ApplicativeAsk, DefaultApplicativeAsk }
 
 import java.time.Instant
 
@@ -25,7 +30,7 @@ class StockServiceSpec extends WordSpec with MustMatchers with ScalaCheckDrivenP
       "add quantity to stock" in new Context {
 
         val op =
-          p.createEntry(existingItemId, Delta(+existingItemCount.toInt))
+          createEntry[IO](existingItemId, Delta(+existingItemCount.toInt))
 
         IOAssertion {
 
@@ -43,7 +48,7 @@ class StockServiceSpec extends WordSpec with MustMatchers with ScalaCheckDrivenP
         forAll { (id: Long, delta: Int) ⇒
           whenever(id > 0L && id != existingItemId.value) {
             val op =
-              p.createEntry(ItemId(id), Delta(delta))
+              createEntry[IO](ItemId(id), Delta(delta))
 
             a[AppError.ItemNotFound.type] should be thrownBy IOAssertion {
               op
@@ -100,6 +105,12 @@ class StockServiceSpec extends WordSpec with MustMatchers with ScalaCheckDrivenP
     val entryRepo = new EntryRepositoryImpl
     val idRepo = new IdRepositoryImpl
 
-    val p = new StockService[IO](entryRepo, itemRepo, idRepo)
+    implicit val stocksInstance: ApplicativeAsk[IO, Stocks[IO]] = new DefaultApplicativeAsk[IO, Stocks[IO]] {
+      val applicative: Applicative[IO] = Applicative[IO]
+      def ask: IO[Stocks[IO]] =
+        IO.pure(new Stocks[IO] {
+          def stocks: Stocks.Service[IO] = Stocks.Live[IO](entryRepo, itemRepo, idRepo)
+        })
+    }
   }
 }

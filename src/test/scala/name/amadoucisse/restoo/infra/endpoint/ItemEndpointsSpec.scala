@@ -5,13 +5,14 @@ package endpoint
 import domain.items._
 import domain.entries._
 import common.IOAssertion
-import service.{ IdService, ItemService, StockService }
+import service.{ Id, Items, Stocks }
 import repositoryimpl.inmemory.{
   EntryRepositoryInMemoryInterpreter,
   IdRepositoryInMemoryInterpreter,
   ItemRepositoryInMemoryInterpreter
 }
 import cats.effect.IO
+import cats.Applicative
 import io.circe.generic.auto._
 import io.circe.syntax._
 import io.circe.literal._
@@ -24,7 +25,7 @@ import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 import eu.timepit.refined.auto._
 import eu.timepit.refined.types.numeric.NonNegInt
 import domain.AppError
-import com.olegpy.meow.hierarchy._
+import cats.mtl.{ ApplicativeAsk, DefaultApplicativeAsk }
 
 @SuppressWarnings(Array("org.wartremover.warts.Throw"))
 class ItemEndpointsSpec
@@ -36,20 +37,40 @@ class ItemEndpointsSpec
     with IOExecution
     with Codecs {
 
+  import com.olegpy.meow.hierarchy._
+
   implicit val H: HttpErrorHandler[IO, AppError] = new AppHttpErrorHandler[IO]
 
   private def httpEndpoint(): IO[HttpRoutes[IO]] =
     for {
       itemRepo ← ItemRepositoryInMemoryInterpreter[IO]
-      itemService = ItemService(itemRepo)
 
       idRepo ← IdRepositoryInMemoryInterpreter[IO]
       entryRepo ← EntryRepositoryInMemoryInterpreter[IO]
-      stockService = StockService(entryRepo, itemRepo, idRepo)
 
-      idService = IdService(idRepo)
+      implicit0(idInstance: ApplicativeAsk[IO, Id[IO]]) = new DefaultApplicativeAsk[IO, Id[IO]] {
+        val applicative: Applicative[IO] = Applicative[IO]
+        def ask: IO[Id[IO]] =
+          IO.pure(new Id[IO] {
+            def id: Id.Service[IO] = Id.Live[IO](idRepo)
+          })
+      }
+      implicit0(itemsInstance: ApplicativeAsk[IO, Items[IO]]) = new DefaultApplicativeAsk[IO, Items[IO]] {
+        val applicative: Applicative[IO] = Applicative[IO]
+        def ask: IO[Items[IO]] =
+          IO.pure(new Items[IO] {
+            def items: Items.Service[IO] = Items.Live[IO](itemRepo)
+          })
+      }
+      implicit0(stocksInstance: ApplicativeAsk[IO, Stocks[IO]]) = new DefaultApplicativeAsk[IO, Stocks[IO]] {
+        val applicative: Applicative[IO] = Applicative[IO]
+        def ask: IO[Stocks[IO]] =
+          IO.pure(new Stocks[IO] {
+            def stocks: Stocks.Service[IO] = Stocks.Live[IO](entryRepo, itemRepo, idRepo)
+          })
+      }
 
-      itemHttpService ← ItemEndpoints.endpoints[IO](itemService, stockService, idService)
+      itemHttpService ← ItemEndpoints.endpoints[IO]
 
     } yield itemHttpService
 
