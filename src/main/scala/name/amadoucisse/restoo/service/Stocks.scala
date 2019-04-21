@@ -1,56 +1,68 @@
 package name.amadoucisse.restoo
 package service
 
-import repository.ItemRepository
-import domain.items.{ Category, Item, ItemId }
-import http.{ Page, SortBy }
-
-import cats.syntax.flatMap._
 import cats.FlatMap
 import cats.mtl.ApplicativeAsk
+import cats.temp.par._
+import cats.implicits._
+import cats.effect.{ Clock, Sync }
+import domain.{ AppError, DateTime }
+import repository.{ EntryRepository, IdRepository, ItemRepository }
+import domain.items.ItemId
+import domain.entries.{ Delta, Entry, Stock }
 
-trait Items[F[_]] {
-  def items: Items.Service[F]
+import java.util.concurrent.TimeUnit
+import java.time.Instant
+
+trait Stocks[F[_]] {
+  def stocks: Stocks.Service[F]
 }
 
-object Items {
+object Stocks {
 
   trait Service[F[_]] {
-    def createItem(item: Item): F[Unit]
-    def getItem(itemId: ItemId): F[Item]
-    def deleteItem(itemId: ItemId): F[Unit]
-    def update(item: Item): F[Unit]
-    def list(category: Option[Category], orderBy: Seq[SortBy], page: Page): F[Vector[Item]]
+    def createEntry(itemId: ItemId, delta: Delta): F[Stock]
+    def getStock(itemId: ItemId): F[Stock]
   }
 
-  final case class Live[F[_]](itemRepo: ItemRepository[F]) extends Service[F] {
-    def createItem(item: Item): F[Unit] = itemRepo.create(item)
+  final case class Live[F[_]: Sync: Clock: Par](
+      entryRepo: EntryRepository[F],
+      itemRepo: ItemRepository[F],
+      idRepo: IdRepository[F]
+  ) extends Service[F] {
 
-    def getItem(itemId: ItemId): F[Item] =
-      itemRepo.get(itemId)
+    def createEntry(itemId: ItemId, delta: Delta): F[Stock] = {
+      val getAction = getStock(itemId)
 
-    def deleteItem(itemId: ItemId): F[Unit] = itemRepo.delete(itemId)
+      val getTimeAction = Clock[F].monotonic(TimeUnit.MILLISECONDS)
 
-    def update(item: Item): F[Unit] = itemRepo.update(item)
+      val addAction = (getTimeAction, idRepo.newEntryId).parMapN { (now, newId) ⇒
+        Entry(
+          itemId,
+          delta,
+          DateTime(Instant.ofEpochMilli(now)),
+          id = newId
+        )
+      } >>= entryRepo.create
 
-    def list(category: Option[Category], orderBy: Seq[SortBy], page: Page): F[Vector[Item]] =
-      itemRepo.list(category, orderBy, page)
+      getAction
+        .flatMap { stock ⇒
+          if (stock.quantity + delta.value < 0L) {
+            Sync[F].raiseError(AppError.itemOutOfStock)
+          } else {
+            addAction >> getAction
+          }
+        }
+    }
+
+    def getStock(itemId: ItemId): F[Stock] =
+      (itemRepo.get(itemId), entryRepo.count(itemId)).parMapN(Stock(_, _))
   }
 
-  def createItem[F[_]: FlatMap](item: Item)(implicit A: ApplicativeAsk[F, Items[F]]): F[Unit] =
-    A.ask.flatMap(_.items.createItem(item))
+  def createEntry[F[_]: FlatMap](itemId: ItemId, delta: Delta)(implicit A: ApplicativeAsk[F, Stocks[F]]): F[Stock] =
+    A.ask.flatMap(_.stocks.createEntry(itemId, delta))
 
-  def getItem[F[_]: FlatMap](itemId: ItemId)(implicit A: ApplicativeAsk[F, Items[F]]): F[Item] =
-    A.ask.flatMap(_.items.getItem(itemId))
-
-  def deleteItem[F[_]: FlatMap](itemId: ItemId)(implicit A: ApplicativeAsk[F, Items[F]]): F[Unit] =
-    A.ask.flatMap(_.items.deleteItem(itemId))
-
-  def updateItem[F[_]: FlatMap](item: Item)(implicit A: ApplicativeAsk[F, Items[F]]): F[Unit] =
-    A.ask.flatMap(_.items.update(item))
-
-  def listItems[F[_]: FlatMap](category: Option[Category], orderBy: Seq[SortBy], page: Page)(
-      implicit A: ApplicativeAsk[F, Items[F]]
-  ): F[Vector[Item]] = A.ask.flatMap(_.items.list(category, orderBy, page))
+  def getStock[F[_]: FlatMap](itemId: ItemId)(implicit A: ApplicativeAsk[F, Stocks[F]]): F[Stock] =
+    A.ask.flatMap(_.stocks.getStock(itemId))
 
 }
