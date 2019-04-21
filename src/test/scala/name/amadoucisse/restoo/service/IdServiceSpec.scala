@@ -21,7 +21,7 @@ class IdServiceSpec extends WordSpec with MustMatchers with ScalaCheckDrivenProp
   "item" when {
 
     "generate item id is called" should {
-      "generate a new item id" in new Context {
+      "generates a new item id" in new Context {
 
         val op =
           newItemId[IO]
@@ -41,7 +41,7 @@ class IdServiceSpec extends WordSpec with MustMatchers with ScalaCheckDrivenProp
   "entry" when {
 
     "generate entry id is called" should {
-      "generate a new entry id" in new Context {
+      "generates a new entry id" in new Context {
 
         val op =
           newEntryId[IO]
