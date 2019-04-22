@@ -15,7 +15,7 @@ private[restoo] final class Module[F[_]: Sync: Timer: Par](
     entryRepo: EntryRepository[F],
 ) {
 
-  implicit val idInstance: ApplicativeAsk[F, Id[F]] = new DefaultApplicativeAsk[F, Id[F]] {
+  implicit val id: ApplicativeAsk[F, Id[F]] = new DefaultApplicativeAsk[F, Id[F]] {
     val applicative: Applicative[F] = Applicative[F]
     def ask: F[Id[F]] =
       Sync[F].pure(new Id[F] {
@@ -23,7 +23,7 @@ private[restoo] final class Module[F[_]: Sync: Timer: Par](
       })
   }
 
-  implicit val itemsInstance: ApplicativeAsk[F, Items[F]] = new DefaultApplicativeAsk[F, Items[F]] {
+  implicit val items: ApplicativeAsk[F, Items[F]] = new DefaultApplicativeAsk[F, Items[F]] {
     val applicative: Applicative[F] = Applicative[F]
     def ask: F[Items[F]] =
       Sync[F].pure(new Items[F] {
@@ -31,7 +31,7 @@ private[restoo] final class Module[F[_]: Sync: Timer: Par](
       })
   }
 
-  implicit val stocksInstance: ApplicativeAsk[F, Stocks[F]] = new DefaultApplicativeAsk[F, Stocks[F]] {
+  implicit val stocks: ApplicativeAsk[F, Stocks[F]] = new DefaultApplicativeAsk[F, Stocks[F]] {
     val applicative: Applicative[F] = Applicative[F]
     def ask: F[Stocks[F]] =
       Sync[F].pure(new Stocks[F] {
