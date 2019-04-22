@@ -1,9 +1,9 @@
 package name.amadoucisse.restoo
 
-import cats.effect.{ ConcurrentEffect, ContextShift, ExitCode, IO, IOApp, Resource, Sync, Timer }
+import cats.effect.{ ConcurrentEffect, ContextShift, ExitCode, IO, IOApp, Resource, Timer }
 import cats.temp.par._
 import cats.implicits._
-import cats.{ Applicative, Parallel }
+import cats.Parallel
 import io.prometheus.client.CollectorRegistry
 import config.{ AppConf, DatabaseConf }
 import domain.AppError
@@ -14,7 +14,6 @@ import infra.repositoryimpl.doobie.{
   DoobieItemRepositoryInterpreter
 }
 import doobie.util.ExecutionContexts
-import service.{ Id, Items, Stocks }
 import org.http4s.implicits._
 import org.http4s.server.{ Router, Server }
 import org.http4s.server.staticcontent.{ MemoryCache, WebjarService, webjarService }
@@ -25,7 +24,7 @@ import org.http4s.metrics.prometheus.{ Prometheus, PrometheusExportService }
 import http.{ AppHttpErrorHandler, HttpErrorHandler, SwaggerSpec }
 import eu.timepit.refined.auto._
 
-import cats.mtl.{ ApplicativeAsk, DefaultApplicativeAsk }
+import cats.mtl.ApplicativeAsk
 
 object Main extends IOApp {
   import com.olegpy.meow.hierarchy.deriveMonadError
@@ -50,29 +49,13 @@ object Main extends IOApp {
       itemRepo = DoobieItemRepositoryInterpreter(xa)
       entryRepo = DoobieEntryRepositoryInterpreter(xa)
 
-      implicit0(idInstance: ApplicativeAsk[F, Id[F]]) = new DefaultApplicativeAsk[F, Id[F]] {
-        val applicative: Applicative[F] = Applicative[F]
-        def ask: F[Id[F]] =
-          Sync[F].pure(new Id[F] {
-            def id: Id.Service[F] = Id.Live[F](idRepo)
-          })
-      }
-      implicit0(itemsInstance: ApplicativeAsk[F, Items[F]]) = new DefaultApplicativeAsk[F, Items[F]] {
-        val applicative: Applicative[F] = Applicative[F]
-        def ask: F[Items[F]] =
-          Sync[F].pure(new Items[F] {
-            def items: Items.Service[F] = Items.Live[F](itemRepo)
-          })
-      }
-      implicit0(stocksInstance: ApplicativeAsk[F, Stocks[F]]) = new DefaultApplicativeAsk[F, Stocks[F]] {
-        val applicative: Applicative[F] = Applicative[F]
-        def ask: F[Stocks[F]] =
-          Sync[F].pure(new Stocks[F] {
-            def stocks: Stocks.Service[F] = Stocks.Live[F](entryRepo, itemRepo, idRepo)
-          })
-      }
+      deps = new Module[F](idRepo, itemRepo, entryRepo)
 
-      endpoints ← Resource.liftF(ItemEndpoints.endpoints[F])
+      endpoints ← {
+        import deps._
+
+        Resource.liftF(ItemEndpoints.endpoints[F])
+      }
 
       registry = CollectorRegistry.defaultRegistry
 
@@ -109,4 +92,5 @@ object Main extends IOApp {
 
     } yield server
   }
+
 }
