@@ -35,7 +35,7 @@ final class ItemEndpoints[
     with Codecs {
   import ItemEndpoints._
 
-  private def createEndpoint: HttpRoutes[F] =
+  private def createEndpoint(): HttpRoutes[F] =
     HttpRoutes.of[F] {
       case req @ POST → Root ⇒
         for {
@@ -63,7 +63,7 @@ final class ItemEndpoints[
 
     }
 
-  private def updateEndpoint: HttpRoutes[F] =
+  private def updateEndpoint(): HttpRoutes[F] =
     HttpRoutes.of[F] {
       case req @ PUT → (Root / ItemId(id)) ⇒
         for {
@@ -89,7 +89,7 @@ final class ItemEndpoints[
 
     }
 
-  private def patchEndpoint: HttpRoutes[F] = {
+  private def patchEndpoint(): HttpRoutes[F] = {
 
     @annotation.tailrec
     def isValidJsonPatchForItem(patches: Vector[JsonPatch]): Boolean =
@@ -153,7 +153,7 @@ final class ItemEndpoints[
     }
   }
 
-  private def listEndpoint: HttpRoutes[F] = {
+  private def listEndpoint(): HttpRoutes[F] = {
     implicit val categoryQueryParamDecoder: QueryParamDecoder[Category] =
       QueryParamDecoder[String].map(Category(_))
 
@@ -211,7 +211,7 @@ final class ItemEndpoints[
     }
   }
 
-  private def deleteItemEndpoint: HttpRoutes[F] =
+  private def deleteItemEndpoint(): HttpRoutes[F] =
     HttpRoutes.of[F] {
       case DELETE → (Root / ItemId(id)) ⇒
         for {
@@ -220,7 +220,7 @@ final class ItemEndpoints[
         } yield resp
     }
 
-  private def getItemEndpoint: HttpRoutes[F] =
+  private def getItemEndpoint(): HttpRoutes[F] =
     HttpRoutes.of[F] {
       case GET → (Root / ItemId(id)) ⇒
         for {
@@ -229,7 +229,7 @@ final class ItemEndpoints[
         } yield resp
     }
 
-  private def createStockEntryEndpoint: HttpRoutes[F] = {
+  private def createStockEntryEndpoint(): HttpRoutes[F] = {
     implicit val deltaQueryParamDecoder: QueryParamDecoder[Delta] =
       QueryParamDecoder[Int].map(Delta(_))
 
@@ -249,7 +249,7 @@ final class ItemEndpoints[
     }
   }
 
-  private def getStockEndpoint: HttpRoutes[F] =
+  private def getStockEndpoint(): HttpRoutes[F] =
     HttpRoutes.of[F] {
       case GET → (Root / ItemId(itemId) / "stocks") ⇒
         for {
@@ -268,14 +268,14 @@ final class ItemEndpoints[
       implicit H: HttpErrorHandler[F, AppError],
   ): HttpRoutes[F] =
     H.handle {
-      createEndpoint <+>
-        patchEndpoint <+>
-        updateEndpoint <+>
-        deleteItemEndpoint <+>
-        getItemEndpoint <+>
-        listEndpoint <+>
-        createStockEntryEndpoint <+>
-        getStockEndpoint <+>
+      createEndpoint() <+>
+        patchEndpoint() <+>
+        updateEndpoint() <+>
+        deleteItemEndpoint() <+>
+        getItemEndpoint() <+>
+        listEndpoint() <+>
+        createStockEntryEndpoint() <+>
+        getStockEndpoint() <+>
         getSwaggerSpec(swaggerConf)
     }
 }
